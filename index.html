@@ -88,6 +88,20 @@
   .spin{width:38px;height:38px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .75s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg)}}
   .load-txt{color:var(--muted);font-size:.82rem;}
+
+  /* ── Board Commentary ── */
+  .commentary-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 24px;border-left:3px solid var(--accent);}
+  .commentary-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:6px;}
+  .commentary-hdr h3{font-size:.82rem;font-weight:800;letter-spacing:.4px;}
+  .commentary-hdr span{font-size:.7rem;color:var(--muted);}
+  .c-bullets{display:flex;flex-direction:column;gap:0;}
+  .c-row{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:start;padding:8px 0;border-bottom:1px solid var(--border);}
+  .c-row:last-child{border-bottom:none;padding-bottom:0;}
+  .c-icon{font-size:.75rem;font-weight:900;padding-top:2px;text-align:center;}
+  .c-icon.pos{color:#00d4aa;} .c-icon.neg{color:#ff6b6b;} .c-icon.warn{color:#ffa94d;} .c-icon.neu{color:#8890a8;}
+  .c-text{font-size:.8rem;line-height:1.6;color:var(--text);}
+  .c-text strong{color:#fff;font-weight:700;}
+  .gtag{display:inline-block;padding:1px 7px;border-radius:4px;font-size:.68rem;font-weight:700;margin:0 1px;vertical-align:middle;}
 </style>
 </head>
 <body>
@@ -215,17 +229,29 @@ function mkChart(id,type,labels,datasets,opts={}) {
 }
 
 // ── Load & render ─────────────────────────────────────────────────────────────
+function sheetUrl(sheetName) {
+  return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&_=${Date.now()}`;
+}
+
 async function loadTab(id) {
   const tab = TABS.find(t=>t.id===id);
   showLoading(true);
-  // destroy old charts
   chartInstances.forEach(c=>c.destroy());
   chartInstances=[];
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab.sheet)}&_=${Date.now()}`;
-    const r   = await fetch(url);
-    const txt = await r.text();
-    render(parseCSV(txt), tab);
+    if (id === 'overall') {
+      // Fetch Overall + all 4 geo sheets in parallel for commentary
+      const geoTabs = TABS.filter(t=>t.id!=='overall');
+      const [overallTxt, ...geoTxts] = await Promise.all([
+        fetch(sheetUrl(tab.sheet)).then(r=>r.text()),
+        ...geoTabs.map(t=>fetch(sheetUrl(t.sheet)).then(r=>r.text()))
+      ]);
+      const geoData = geoTabs.map((t,i)=>({ id:t.id, label:t.label, color:t.color, rows:parseCSV(geoTxts[i]) }));
+      render(parseCSV(overallTxt), tab, geoData);
+    } else {
+      const txt = await fetch(sheetUrl(tab.sheet)).then(r=>r.text());
+      render(parseCSV(txt), tab, []);
+    }
   } catch(e) {
     document.getElementById('loading').innerHTML=`<div style="color:#ff6b6b;text-align:center">Failed to load ${tab.label} data.<br><small>${e.message}</small></div>`;
     showLoading(true);
@@ -237,7 +263,101 @@ function showLoading(show) {
   document.getElementById('dash').style.display    = show?'none':'block';
 }
 
-function render(rows, tab) {
+// ── Geography metric extractor (for commentary) ───────────────────────────────
+function extractGeoMetrics(rows) {
+  const allMonths = rows[1].slice(2).filter(Boolean);
+  const mo = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const mNum = s => { const [nm,yr]=s.split(' '); return (+yr)*12+mo.indexOf(nm); };
+  const sN=mNum(RANGE_START), eN=mNum(RANGE_END);
+  const idxs = allMonths.map((m,i)=>{ const v=mNum(m); return(v>=sN&&v<=eN)?i:-1; }).filter(i=>i>=0);
+  const latI = idxs.length-1, prevI = latI>0?latI-1:0;
+  const M={};
+  for(const row of rows.slice(2)){
+    let label=row[1]; if(!label) continue;
+    M[KEY_ALIASES[label]||label] = idxs.map(i=>n(row[2+i]));
+  }
+  const g=k=>M[k]||[];
+  const mau=g('MAU'), dau=g('DAU'), dauMauR=g('DAU/MAU'),
+        payMau=g('Paying MAU'), payMauPct=g('Paying MAU/MAU'),
+        mktCost=g('Marketing Cost ($'), npu=g('NPU'), txns=g('Transactions');
+  return {
+    mauLat:   mau[latI],      mauMoM:     delta(mau,latI),
+    dauLat:   dau[latI],      dauMoM:     delta(dau,latI),
+    dauMauR:  dauMauR[latI],
+    payMauLat:payMau[latI],   payMauMoM:  delta(payMau,latI),
+    payMauPct:payMauPct[latI],
+    mktLat:   mktCost[latI],  mktMoM:     delta(mktCost,latI),
+    npuLat:   npu[latI],      npuMoM:     delta(npu,latI),
+    txnsLat:  txns[latI],     txnsMoM:    delta(txns,latI),
+  };
+}
+
+// ── Board-level commentary builder ────────────────────────────────────────────
+function buildCommentary(geoData, overallMau, latMon) {
+  const geos = geoData.map(g => ({ ...g, ...extractGeoMetrics(g.rows) }));
+
+  const tag  = (g) => `<span class="gtag" style="background:${g.color}22;color:${g.color}">${g.label}</span>`;
+  const pct  = v  => v==null?'—':(v>0?'+':'')+v.toFixed(1)+'%';
+  const abs  = v  => fmtBig(v);
+  const rank = (arr, key, asc=false) => [...arr].sort((a,b)=> asc ? (a[key]??-Infinity)-(b[key]??-Infinity) : (b[key]??-Infinity)-(a[key]??-Infinity));
+
+  const bullets = [];
+
+  // 1. MAU growth rank across geos
+  const byMAUGrowth = rank(geos,'mauMoM');
+  const topG = byMAUGrowth[0], botG = byMAUGrowth[byMAUGrowth.length-1];
+  const allPos = geos.every(g=>g.mauMoM!=null&&g.mauMoM>0);
+  const growthStr = byMAUGrowth.map(g=>`${tag(g)} ${pct(g.mauMoM)}`).join(' · ');
+  const call = allPos ? 'All geos growing.' : botG.mauMoM!=null&&botG.mauMoM<0 ? `${tag(botG)} remains a drag.` : `${tag(botG)} the softest.`;
+  bullets.push({ cls:'pos', icon:'▲', text:`<strong>MAU Growth:</strong> ${growthStr}. ${call}` });
+
+  // 2. Scale — India share of overall MAU
+  const india = geos.find(g=>g.id==='india');
+  const shareStr = overallMau&&india?.mauLat ? ` (${((india.mauLat/overallMau)*100).toFixed(0)}% of total MAU)` : '';
+  const byMAU = rank(geos,'mauLat');
+  const smallest = byMAU[byMAU.length-1];
+  bullets.push({ cls:'neu', icon:'◉', text:`<strong>Scale:</strong> ${tag(byMAU[0])} largest geo at ${abs(byMAU[0].mauLat)}${shareStr}; ${tag(smallest)} smallest at ${abs(smallest.mauLat)} but growing at ${pct(smallest.mauMoM)} MoM.` });
+
+  // 3. Engagement quality — DAU/MAU spread
+  const byEng = rank(geos,'dauMauR');
+  const topE = byEng[0], botE = byEng[byEng.length-1];
+  const spread = (topE.dauMauR!=null&&botE.dauMauR!=null) ? ((topE.dauMauR-botE.dauMauR).toFixed(1)+'pp spread') : '';
+  bullets.push({ cls: topE.dauMauR>25?'pos':'warn', icon:'◈', text:`<strong>Engagement (DAU/MAU):</strong> ${tag(topE)} leads at ${fmtPct(topE.dauMauR)}; ${tag(botE)} lowest at ${fmtPct(botE.dauMauR)}${spread?' — '+spread:''}.` });
+
+  // 4. Monetisation density + fastest grower
+  const byPayPct = rank(geos,'payMauPct');
+  const byPayMoM = rank(geos,'payMauMoM');
+  const densityLeader = byPayPct[0], growthLeader = byPayMoM[0];
+  const monetNote = densityLeader.id===growthLeader.id
+    ? `${tag(densityLeader)} leads on both density (${fmtPct(densityLeader.payMauPct)}) and growth (${pct(densityLeader.payMauMoM)}).`
+    : `${tag(densityLeader)} highest density at ${fmtPct(densityLeader.payMauPct)}; ${tag(growthLeader)} fastest growth at ${pct(growthLeader.payMauMoM)} MoM.`;
+  bullets.push({ cls:'pos', icon:'$', text:`<strong>Monetisation:</strong> ${monetNote}` });
+
+  // 5. Marketing efficiency — cost growth vs MAU growth delta, flag outliers
+  const effGeos = geos.filter(g=>g.mktMoM!=null&&g.mauMoM!=null);
+  if(effGeos.length){
+    const byEff = rank(effGeos, 'x').map(g=>({...g, x:(g.mktMoM-g.mauMoM)})).sort((a,b)=>a.x-b.x);
+    const leanest=byEff[0], heaviest=byEff[byEff.length-1];
+    const isSame = leanest.id===heaviest.id;
+    if(!isSame){
+      const lSign = leanest.x<0?'cost growing slower than MAU — efficient':'over-spending vs MAU return';
+      bullets.push({ cls: leanest.x<0?'pos':'warn', icon:'⬡', text:`<strong>Mktg Efficiency:</strong> ${tag(leanest)} most efficient (${pct(leanest.mktMoM)} cost vs ${pct(leanest.mauMoM)} MAU); ${tag(heaviest)} highest overspend gap (${pct(heaviest.mktMoM)} cost vs ${pct(heaviest.mauMoM)} MAU).` });
+    }
+  }
+
+  // 6. Watch item — DAU declining while MAU growing, or NPU softness
+  const dauWarn = geos.filter(g=>g.mauMoM!=null&&g.dauMoM!=null&&g.mauMoM>0&&g.dauMoM<0);
+  const npuWarn = geos.filter(g=>g.npuMoM!=null&&g.npuMoM<-10);
+  if(dauWarn.length){
+    bullets.push({ cls:'warn', icon:'▼', text:`<strong>Watch:</strong> ${dauWarn.map(g=>`${tag(g)} DAU declining (${pct(g.dauMoM)}) despite MAU recovery — engagement conversion lagging.`).join(' ')}` });
+  } else if(npuWarn.length){
+    bullets.push({ cls:'warn', icon:'▼', text:`<strong>Watch:</strong> New Paying Users declining in ${npuWarn.map(g=>`${tag(g)} (${pct(g.npuMoM)})`).join(', ')} — monitor top-of-funnel monetisation health.` });
+  }
+
+  return bullets;
+}
+
+function render(rows, tab, geoData=[]) {
   // ── Build normalised metric map ─────────────────────────────────────────
   const allMonths = rows[1].slice(2).filter(Boolean);
   const monthOrder=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -294,8 +414,27 @@ function render(rows, tab) {
       <div class="kpi-sub">${sub||latMon}</div>
     </div>`;
 
+  // ── Commentary (Overall tab only) ───────────────────────────────────────
+  let commentaryHtml = '';
+  if (tab.id === 'overall' && geoData.length) {
+    const bullets = buildCommentary(geoData, mau[latI], latMon);
+    const rows_html = bullets.map(b=>`
+      <div class="c-row">
+        <div class="c-icon ${b.cls}">${b.icon}</div>
+        <div class="c-text">${b.text}</div>
+      </div>`).join('');
+    commentaryHtml = `
+    <div class="commentary-card">
+      <div class="commentary-hdr">
+        <h3>Board Commentary · Geographic Performance</h3>
+        <span>${latMon} · Apr 2025 – Mar 2026</span>
+      </div>
+      <div class="c-bullets">${rows_html}</div>
+    </div>`;
+  }
+
   // ── Build dashboard HTML ─────────────────────────────────────────────────
-  document.getElementById('dash').innerHTML = `
+  document.getElementById('dash').innerHTML = commentaryHtml + `
   <div class="sec-label">Users &amp; Growth</div>
   <div class="kpi-grid">
     ${kpi('MAU',          fmtBig(mau[latI]),      delta(mau,latI),          '%',  '#6c63ff')}
