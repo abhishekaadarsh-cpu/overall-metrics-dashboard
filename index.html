@@ -199,7 +199,8 @@ function render(rows){
   const payDau     = M['Paying DAU']||[];
   const payMauPct  = M['Paying MAU/MAU']||[];
   const payDauPct  = M['Paying DAU/Paying MAU']||[];
-  const mktCost    = M['Marketing Cost ($ ']||[];
+  const mktCost     = M['Marketing Cost ($']||[];
+  const mktGrowth   = M['Marketing Cost Growth']||[];
   const installs   = M['Installs']||[];
   const cumInst    = M['Cumulative Installs']||[];
   const payUsersC  = M['Paying Users (Cumulative)']||[];
@@ -256,7 +257,7 @@ function render(rows){
 
   <div class="charts-2" style="margin-top:16px">
     <div class="chart-card"><div class="chart-title">Monthly Installs<small>raw &amp; cumulative</small></div><div class="ch"><canvas id="c-inst"></canvas></div></div>
-    <div class="chart-card"><div class="chart-title">Marketing Cost<small>USD</small></div><div class="ch"><canvas id="c-mkt"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Marketing Cost<small>USD + MoM growth %</small></div><div class="ch"><canvas id="c-mkt"></canvas></div></div>
     <div class="chart-card"><div class="chart-title">Transactions &amp; NPU<small>monthly</small></div><div class="ch"><canvas id="c-txn"></canvas></div></div>
     <div class="chart-card"><div class="chart-title">Paying Users (Cumulative)<small>unique payers</small></div><div class="ch"><canvas id="c-pu"></canvas></div></div>
   </div>
@@ -317,10 +318,17 @@ function render(rows){
     {label:'Cumulative Installs',data:cumInst,type:'line',borderColor:'#94e2d5',tension:.3,pointRadius:2,yAxisID:'y2'}
   ],{y2:{},yFmt:v=>fmtBig(v),y2Fmt:v=>fmtBig(v)});
 
-  // Marketing cost
+  // Marketing cost + MoM growth trendline
   mkChart('c-mkt','bar',SL,[
-    {label:'Marketing Cost',data:mktCost,backgroundColor:'rgba(205,214,244,.45)',borderRadius:4}
-  ],{yFmt:v=>fmtCur(v)});
+    {label:'Marketing Cost',data:mktCost,backgroundColor:mktCost.map(v=>v==null?'transparent':'rgba(205,214,244,.5)'),borderRadius:4,yAxisID:'y'},
+    {label:'MoM Growth %',data:mktGrowth,type:'line',borderColor:'#ffa94d',backgroundColor:'rgba(255,169,77,.0)',
+      tension:.4,pointRadius:4,pointBackgroundColor:mktGrowth.map(v=>v==null?'transparent':v>=0?'#00d4aa':'#ff6b6b'),
+      borderWidth:2,yAxisID:'y2'}
+  ],{
+    yFmt:  v => fmtCur(v),
+    y2Fmt: v => v==null?'':v.toFixed(1)+'%',
+    y2: { grid:{drawOnChartArea:false}, ticks:{color:'#ffa94d',font:{size:9}} }
+  });
 
   // Transactions + NPU
   mkChart('c-txn','bar',SL,[
@@ -361,7 +369,7 @@ function render(rows){
       {k:'Paying Users (Cumulative)',fmt:'big'},{k:'Paying Users Growth',fmt:'pct'},
       {k:'Transactions',fmt:'big'},{k:'Transactions Growth',fmt:'pct'},
       {k:'NPU',fmt:'big'},{k:'NPU Growth',fmt:'pct'},
-      {k:'Marketing Cost ($ ',label:'Marketing Cost',fmt:'cur'},{k:'Marketing Cost Growth',fmt:'pct'},
+      {k:'Marketing Cost ($',label:'Marketing Cost',fmt:'cur'},{k:'Marketing Cost Growth',fmt:'pct'},
     ]},
     { name: 'Playtime', rows: [
       {k:'Daily LDAU',fmt:'big'},{k:'Daily Paying LDAU',fmt:'big'},{k:'Paid LDAU %',fmt:'pct'},
