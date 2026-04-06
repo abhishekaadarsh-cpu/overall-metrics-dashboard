@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Metrics Dashboard · Apr 2025 – Mar 2026</title>
+<title>CFO Datapack · Apr 2025 – Mar 2026</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   :root {
@@ -89,26 +89,26 @@
   @keyframes spin{to{transform:rotate(360deg)}}
   .load-txt{color:var(--muted);font-size:.82rem;}
 
-  /* ── Board Commentary ── */
-  .commentary-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 24px;border-left:3px solid var(--accent);}
-  .commentary-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:6px;}
-  .commentary-hdr h3{font-size:.82rem;font-weight:800;letter-spacing:.4px;}
-  .commentary-hdr span{font-size:.7rem;color:var(--muted);}
+  /* ── Analysis blocks ── */
+  .analysis-block{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-top:18px;border-left:3px solid var(--accent);}
+  .analysis-hdr{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+  .analysis-hdr .a-label{font-size:.62rem;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:var(--accent);background:rgba(108,99,255,.12);padding:3px 10px;border-radius:20px;}
+  .analysis-hdr .a-period{font-size:.68rem;color:var(--muted);}
   .c-bullets{display:flex;flex-direction:column;gap:0;}
-  .c-row{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:start;padding:8px 0;border-bottom:1px solid var(--border);}
+  .c-row{display:grid;grid-template-columns:20px 1fr;gap:9px;align-items:start;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);}
   .c-row:last-child{border-bottom:none;padding-bottom:0;}
-  .c-icon{font-size:.75rem;font-weight:900;padding-top:2px;text-align:center;}
+  .c-icon{font-size:.72rem;font-weight:900;padding-top:2px;text-align:center;}
   .c-icon.pos{color:#00d4aa;} .c-icon.neg{color:#ff6b6b;} .c-icon.warn{color:#ffa94d;} .c-icon.neu{color:#8890a8;}
-  .c-text{font-size:.8rem;line-height:1.6;color:var(--text);}
+  .c-text{font-size:.79rem;line-height:1.6;color:#c8ccd8;}
   .c-text strong{color:#fff;font-weight:700;}
-  .gtag{display:inline-block;padding:1px 7px;border-radius:4px;font-size:.68rem;font-weight:700;margin:0 1px;vertical-align:middle;}
+  .gtag{display:inline-block;padding:1px 7px;border-radius:4px;font-size:.67rem;font-weight:700;margin:0 1px;vertical-align:middle;}
 </style>
 </head>
 <body>
 
 <header>
   <div class="header-top">
-    <h1>Metrics <span>Dashboard</span></h1>
+    <h1>CFO <span>Datapack</span></h1>
     <div class="header-right">
       <span class="date-badge">Apr 2025 – Mar 2026</span>
       <span id="last-updated"><span id="dot"></span>Loading…</span>
@@ -263,14 +263,14 @@ function showLoading(show) {
   document.getElementById('dash').style.display    = show?'none':'block';
 }
 
-// ── Geography metric extractor (for commentary) ───────────────────────────────
+// ── Geography metric extractor ────────────────────────────────────────────────
 function extractGeoMetrics(rows) {
   const allMonths = rows[1].slice(2).filter(Boolean);
   const mo = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const mNum = s => { const [nm,yr]=s.split(' '); return (+yr)*12+mo.indexOf(nm); };
   const sN=mNum(RANGE_START), eN=mNum(RANGE_END);
   const idxs = allMonths.map((m,i)=>{ const v=mNum(m); return(v>=sN&&v<=eN)?i:-1; }).filter(i=>i>=0);
-  const latI = idxs.length-1, prevI = latI>0?latI-1:0;
+  const latI = idxs.length-1;
   const M={};
   for(const row of rows.slice(2)){
     let label=row[1]; if(!label) continue;
@@ -279,82 +279,123 @@ function extractGeoMetrics(rows) {
   const g=k=>M[k]||[];
   const mau=g('MAU'), dau=g('DAU'), dauMauR=g('DAU/MAU'),
         payMau=g('Paying MAU'), payMauPct=g('Paying MAU/MAU'),
-        mktCost=g('Marketing Cost ($'), npu=g('NPU'), txns=g('Transactions');
+        mktCost=g('Marketing Cost ($'), npu=g('NPU'), txns=g('Transactions'),
+        totalPT=g('Total Playtime (Mins)'), paidPT=g('Paid Playtime (Mins)'),
+        ptLdau=g('Playtime/LDAU (Mins)'), paidOvPT=g('Paid/Overall Playtime'),
+        dailyLdau=g('Daily LDAU'), paidLdauPct=g('Paid LDAU %');
   return {
-    mauLat:   mau[latI],      mauMoM:     delta(mau,latI),
-    dauLat:   dau[latI],      dauMoM:     delta(dau,latI),
-    dauMauR:  dauMauR[latI],
-    payMauLat:payMau[latI],   payMauMoM:  delta(payMau,latI),
+    mauLat:mau[latI],         mauMoM:delta(mau,latI),
+    dauLat:dau[latI],         dauMoM:delta(dau,latI),
+    dauMauR:dauMauR[latI],
+    payMauLat:payMau[latI],   payMauMoM:delta(payMau,latI),
     payMauPct:payMauPct[latI],
-    mktLat:   mktCost[latI],  mktMoM:     delta(mktCost,latI),
-    npuLat:   npu[latI],      npuMoM:     delta(npu,latI),
-    txnsLat:  txns[latI],     txnsMoM:    delta(txns,latI),
+    mktLat:mktCost[latI],     mktMoM:delta(mktCost,latI),
+    npuLat:npu[latI],         npuMoM:delta(npu,latI),
+    txnsLat:txns[latI],       txnsMoM:delta(txns,latI),
+    totalPTLat:totalPT[latI], totalPTMoM:delta(totalPT,latI),
+    paidPTLat:paidPT[latI],   paidPTMoM:delta(paidPT,latI),
+    ptLdauLat:ptLdau[latI],
+    paidOvPTLat:paidOvPT[latI],
+    ldauLat:dailyLdau[latI],  ldauMoM:delta(dailyLdau,latI),
+    paidLdauPct:paidLdauPct[latI],
   };
 }
 
-// ── Board-level commentary builder ────────────────────────────────────────────
-function buildCommentary(geoData, overallMau, latMon) {
+// ── Analysis HTML builder ─────────────────────────────────────────────────────
+function analysisBlock(bullets, period) {
+  if(!bullets.length) return '';
+  const rows = bullets.map(b=>`
+    <div class="c-row">
+      <div class="c-icon ${b.cls}">${b.icon}</div>
+      <div class="c-text">${b.text}</div>
+    </div>`).join('');
+  return `<div class="analysis-block">
+    <div class="analysis-hdr"><span class="a-label">Analysis</span><span class="a-period">${period}</span></div>
+    <div class="c-bullets">${rows}</div>
+  </div>`;
+}
+
+function buildAnalysis(geoData, overallMau, latMon) {
   const geos = geoData.map(g => ({ ...g, ...extractGeoMetrics(g.rows) }));
+  const tag  = g => `<span class="gtag" style="background:${g.color}22;color:${g.color}">${g.label}</span>`;
+  const pct  = v => v==null?'—':(v>0?'+':'')+v.toFixed(1)+'%';
+  const rank = (arr,key) => [...arr].filter(g=>g[key]!=null).sort((a,b)=>b[key]-a[key]);
+  const period = `${latMon} · Geo breakdown`;
 
-  const tag  = (g) => `<span class="gtag" style="background:${g.color}22;color:${g.color}">${g.label}</span>`;
-  const pct  = v  => v==null?'—':(v>0?'+':'')+v.toFixed(1)+'%';
-  const abs  = v  => fmtBig(v);
-  const rank = (arr, key, asc=false) => [...arr].sort((a,b)=> asc ? (a[key]??-Infinity)-(b[key]??-Infinity) : (b[key]??-Infinity)-(a[key]??-Infinity));
-
-  const bullets = [];
-
-  // 1. MAU growth rank across geos
-  const byMAUGrowth = rank(geos,'mauMoM');
-  const topG = byMAUGrowth[0], botG = byMAUGrowth[byMAUGrowth.length-1];
-  const allPos = geos.every(g=>g.mauMoM!=null&&g.mauMoM>0);
-  const growthStr = byMAUGrowth.map(g=>`${tag(g)} ${pct(g.mauMoM)}`).join(' · ');
-  const call = allPos ? 'All geos growing.' : botG.mauMoM!=null&&botG.mauMoM<0 ? `${tag(botG)} remains a drag.` : `${tag(botG)} the softest.`;
-  bullets.push({ cls:'pos', icon:'▲', text:`<strong>MAU Growth:</strong> ${growthStr}. ${call}` });
-
-  // 2. Scale — India share of overall MAU
-  const india = geos.find(g=>g.id==='india');
-  const shareStr = overallMau&&india?.mauLat ? ` (${((india.mauLat/overallMau)*100).toFixed(0)}% of total MAU)` : '';
-  const byMAU = rank(geos,'mauLat');
-  const smallest = byMAU[byMAU.length-1];
-  bullets.push({ cls:'neu', icon:'◉', text:`<strong>Scale:</strong> ${tag(byMAU[0])} largest geo at ${abs(byMAU[0].mauLat)}${shareStr}; ${tag(smallest)} smallest at ${abs(smallest.mauLat)} but growing at ${pct(smallest.mauMoM)} MoM.` });
-
-  // 3. Engagement quality — DAU/MAU spread
-  const byEng = rank(geos,'dauMauR');
-  const topE = byEng[0], botE = byEng[byEng.length-1];
-  const spread = (topE.dauMauR!=null&&botE.dauMauR!=null) ? ((topE.dauMauR-botE.dauMauR).toFixed(1)+'pp spread') : '';
-  bullets.push({ cls: topE.dauMauR>25?'pos':'warn', icon:'◈', text:`<strong>Engagement (DAU/MAU):</strong> ${tag(topE)} leads at ${fmtPct(topE.dauMauR)}; ${tag(botE)} lowest at ${fmtPct(botE.dauMauR)}${spread?' — '+spread:''}.` });
-
-  // 4. Monetisation density + fastest grower
-  const byPayPct = rank(geos,'payMauPct');
-  const byPayMoM = rank(geos,'payMauMoM');
-  const densityLeader = byPayPct[0], growthLeader = byPayMoM[0];
-  const monetNote = densityLeader.id===growthLeader.id
-    ? `${tag(densityLeader)} leads on both density (${fmtPct(densityLeader.payMauPct)}) and growth (${pct(densityLeader.payMauMoM)}).`
-    : `${tag(densityLeader)} highest density at ${fmtPct(densityLeader.payMauPct)}; ${tag(growthLeader)} fastest growth at ${pct(growthLeader.payMauMoM)} MoM.`;
-  bullets.push({ cls:'pos', icon:'$', text:`<strong>Monetisation:</strong> ${monetNote}` });
-
-  // 5. Marketing efficiency — cost growth vs MAU growth delta, flag outliers
-  const effGeos = geos.filter(g=>g.mktMoM!=null&&g.mauMoM!=null);
-  if(effGeos.length){
-    const byEff = rank(effGeos, 'x').map(g=>({...g, x:(g.mktMoM-g.mauMoM)})).sort((a,b)=>a.x-b.x);
-    const leanest=byEff[0], heaviest=byEff[byEff.length-1];
-    const isSame = leanest.id===heaviest.id;
-    if(!isSame){
-      const lSign = leanest.x<0?'cost growing slower than MAU — efficient':'over-spending vs MAU return';
-      bullets.push({ cls: leanest.x<0?'pos':'warn', icon:'⬡', text:`<strong>Mktg Efficiency:</strong> ${tag(leanest)} most efficient (${pct(leanest.mktMoM)} cost vs ${pct(leanest.mauMoM)} MAU); ${tag(heaviest)} highest overspend gap (${pct(heaviest.mktMoM)} cost vs ${pct(heaviest.mauMoM)} MAU).` });
-    }
-  }
-
-  // 6. Watch item — DAU declining while MAU growing, or NPU softness
+  // ── USERS & GROWTH ────────────────────────────────────────────────────────
+  const ub = [];
+  // MAU momentum ranked
+  const byMau = rank(geos,'mauMoM');
+  const botMau = [...byMau].reverse()[0];
+  ub.push({cls:byMau[0]?.mauMoM>0?'pos':'neg', icon:'▲',
+    text:`<strong>MAU:</strong> ${byMau.map(g=>`${tag(g)} ${pct(g.mauMoM)}`).join(' · ')}. ${botMau?.mauMoM<0?tag(botMau)+' the only declining geo.':'All geos positive.'}`});
+  // Scale
+  const byAbs = rank(geos,'mauLat'), india=geos.find(g=>g.id==='india');
+  const share = overallMau&&india?.mauLat ? ` — ${((india.mauLat/overallMau)*100).toFixed(0)}% of global MAU` : '';
+  ub.push({cls:'neu', icon:'◉',
+    text:`<strong>Scale:</strong> ${tag(byAbs[0])} largest at ${fmtBig(byAbs[0]?.mauLat)}${share}; ${tag(byAbs[byAbs.length-1])} smallest at ${fmtBig(byAbs[byAbs.length-1]?.mauLat)}.`});
+  // Engagement
+  const byEng = rank(geos,'dauMauR'), botEng=[...byEng].reverse()[0];
+  const engSpread = byEng[0]?.dauMauR!=null&&botEng?.dauMauR!=null ? (byEng[0].dauMauR-botEng.dauMauR).toFixed(1)+'pp' : '';
+  ub.push({cls:byEng[0]?.dauMauR>25?'pos':'warn', icon:'◈',
+    text:`<strong>Engagement (DAU/MAU):</strong> ${tag(byEng[0])} leads at ${fmtPct(byEng[0]?.dauMauR)}; ${tag(botEng)} lowest at ${fmtPct(botEng?.dauMauR)}${engSpread?' ('+engSpread+' gap)':''}.`});
+  // Monetisation
+  const byPayPct=rank(geos,'payMauPct'), byPayMoM=rank(geos,'payMauMoM');
+  ub.push({cls:'pos', icon:'$',
+    text:`<strong>Monetisation:</strong> ${tag(byPayPct[0])} highest Paying MAU density at ${fmtPct(byPayPct[0]?.payMauPct)}; ${tag(byPayMoM[0])} fastest growth at ${pct(byPayMoM[0]?.payMauMoM)} MoM.`});
+  // DAU watch
   const dauWarn = geos.filter(g=>g.mauMoM!=null&&g.dauMoM!=null&&g.mauMoM>0&&g.dauMoM<0);
-  const npuWarn = geos.filter(g=>g.npuMoM!=null&&g.npuMoM<-10);
-  if(dauWarn.length){
-    bullets.push({ cls:'warn', icon:'▼', text:`<strong>Watch:</strong> ${dauWarn.map(g=>`${tag(g)} DAU declining (${pct(g.dauMoM)}) despite MAU recovery — engagement conversion lagging.`).join(' ')}` });
-  } else if(npuWarn.length){
-    bullets.push({ cls:'warn', icon:'▼', text:`<strong>Watch:</strong> New Paying Users declining in ${npuWarn.map(g=>`${tag(g)} (${pct(g.npuMoM)})`).join(', ')} — monitor top-of-funnel monetisation health.` });
+  if(dauWarn.length) ub.push({cls:'warn', icon:'▼',
+    text:`<strong>Watch:</strong> ${dauWarn.map(g=>`${tag(g)} DAU ${pct(g.dauMoM)} MoM despite MAU recovery — engagement conversion lagging.`).join(' ')}`});
+
+  // ── ACQUISITION & REVENUE ─────────────────────────────────────────────────
+  const ab = [];
+  // Marketing cost absolute
+  const byMkt = rank(geos,'mktLat'), byMktMoM = rank(geos,'mktMoM');
+  ab.push({cls:'neu', icon:'$',
+    text:`<strong>Marketing Spend:</strong> ${byMkt.map(g=>`${tag(g)} ${fmtCur(g.mktLat)}`).join(' · ')}. ${tag(byMktMoM[0])} highest ramp at ${pct(byMktMoM[0]?.mktMoM)} MoM.`});
+  // Marketing efficiency — cost vs MAU ROI
+  const effGeos = geos.filter(g=>g.mktMoM!=null&&g.mauMoM!=null).map(g=>({...g,gap:g.mktMoM-g.mauMoM})).sort((a,b)=>a.gap-b.gap);
+  if(effGeos.length>1) ab.push({cls:effGeos[0].gap<0?'pos':'warn', icon:'⬡',
+    text:`<strong>Mktg Efficiency (cost vs MAU growth):</strong> ${tag(effGeos[0])} most efficient at ${pct(effGeos[0].mktMoM)} cost / ${pct(effGeos[0].mauMoM)} MAU; ${tag(effGeos[effGeos.length-1])} widest gap at ${pct(effGeos[effGeos.length-1].mktMoM)} cost / ${pct(effGeos[effGeos.length-1].mauMoM)} MAU.`});
+  // Transactions
+  const byTxn = rank(geos,'txnsMoM'), botTxn=[...byTxn].reverse()[0];
+  if(byTxn.length) ab.push({cls:byTxn[0]?.txnsMoM>0?'pos':'neg', icon:'▲',
+    text:`<strong>Transactions:</strong> ${byTxn.map(g=>`${tag(g)} ${pct(g.txnsMoM)}`).join(' · ')}. ${botTxn?.txnsMoM<0?tag(botTxn)+' contracting — monitor conversion health.':'Positive across all geos.'}`});
+  // NPU signal
+  const byNpu = rank(geos,'npuMoM'), botNpu=[...byNpu].reverse()[0];
+  if(byNpu.length) ab.push({cls:botNpu?.npuMoM<-5?'warn':'pos', icon:botNpu?.npuMoM<-5?'▼':'▲',
+    text:`<strong>New Paying Users (NPU):</strong> ${byNpu.map(g=>`${tag(g)} ${pct(g.npuMoM)}`).join(' · ')}. ${botNpu?.npuMoM<-10?tag(botNpu)+' NPU declining — watch top-of-funnel.':'Pipeline healthy across geos.'}`});
+
+  // ── PLAYTIME & ENGAGEMENT ─────────────────────────────────────────────────
+  const pb = [];
+  const ptGeos = geos.filter(g=>g.totalPTLat!=null);
+  if(ptGeos.length){
+    // Playtime growth
+    const byPT = rank(ptGeos,'totalPTMoM'), botPT=[...byPT].reverse()[0];
+    pb.push({cls:byPT[0]?.totalPTMoM>0?'pos':'neg', icon:'▲',
+      text:`<strong>Total Playtime:</strong> ${byPT.map(g=>`${tag(g)} ${pct(g.totalPTMoM)}`).join(' · ')}. ${botPT?.totalPTMoM<0?tag(botPT)+' declining — review content/engagement levers.':'Growth across all reporting geos.'}`});
+    // Playtime/LDAU depth
+    const byPtLdau = rank(ptGeos,'ptLdauLat');
+    pb.push({cls:'neu', icon:'◈',
+      text:`<strong>Playtime / LDAU:</strong> ${tag(byPtLdau[0])} deepest at ${fmtDec(byPtLdau[0]?.ptLdauLat,1)} min/user; ${tag([...byPtLdau].reverse()[0])} lowest at ${fmtDec([...byPtLdau].reverse()[0]?.ptLdauLat,1)} min/user.`});
+    // Paid share of playtime
+    const byPaidShare = rank(ptGeos,'paidOvPTLat'), botPaid=[...byPaidShare].reverse()[0];
+    pb.push({cls:'pos', icon:'$',
+      text:`<strong>Paid/Total Playtime:</strong> ${tag(byPaidShare[0])} highest paid share at ${fmtPct(byPaidShare[0]?.paidOvPTLat)}; ${tag(botPaid)} lowest at ${fmtPct(botPaid?.paidOvPTLat)} — monetisation of session time varies significantly.`});
+    // Paid LDAU %
+    const byPaidLdau = rank(ptGeos,'paidLdauPct');
+    pb.push({cls:byPaidLdau[0]?.paidLdauPct>45?'pos':'warn', icon:'◉',
+      text:`<strong>Paid LDAU %:</strong> ${byPaidLdau.map(g=>`${tag(g)} ${fmtPct(g.paidLdauPct)}`).join(' · ')}. ${byPaidLdau[0]?.paidLdauPct>50?tag(byPaidLdau[0])+' converting majority of daily active learners to paid.':''}`});
+  } else {
+    pb.push({cls:'neu', icon:'—', text:'Playtime breakdown by geography not fully available for this period.'});
   }
 
-  return bullets;
+  return {
+    users:       analysisBlock(ub, period),
+    acquisition: analysisBlock(ab, period),
+    playtime:    analysisBlock(pb, period),
+  };
 }
 
 function render(rows, tab, geoData=[]) {
@@ -414,27 +455,13 @@ function render(rows, tab, geoData=[]) {
       <div class="kpi-sub">${sub||latMon}</div>
     </div>`;
 
-  // ── Commentary (Overall tab only) ───────────────────────────────────────
-  let commentaryHtml = '';
-  if (tab.id === 'overall' && geoData.length) {
-    const bullets = buildCommentary(geoData, mau[latI], latMon);
-    const rows_html = bullets.map(b=>`
-      <div class="c-row">
-        <div class="c-icon ${b.cls}">${b.icon}</div>
-        <div class="c-text">${b.text}</div>
-      </div>`).join('');
-    commentaryHtml = `
-    <div class="commentary-card">
-      <div class="commentary-hdr">
-        <h3>Board Commentary · Geographic Performance</h3>
-        <span>${latMon} · Apr 2025 – Mar 2026</span>
-      </div>
-      <div class="c-bullets">${rows_html}</div>
-    </div>`;
-  }
+  // ── Section analysis (Overall tab only) ─────────────────────────────────
+  const analysis = (tab.id==='overall' && geoData.length)
+    ? buildAnalysis(geoData, mau[latI], latMon)
+    : { users:'', acquisition:'', playtime:'' };
 
   // ── Build dashboard HTML ─────────────────────────────────────────────────
-  document.getElementById('dash').innerHTML = commentaryHtml + `
+  document.getElementById('dash').innerHTML = `
   <div class="sec-label">Users &amp; Growth</div>
   <div class="kpi-grid">
     ${kpi('MAU',          fmtBig(mau[latI]),      delta(mau,latI),          '%',  '#6c63ff')}
@@ -451,6 +478,7 @@ function render(rows, tab, geoData=[]) {
     <div class="chart-card"><div class="chart-title">Engagement Ratios<small>DAU/MAU · Paying MAU/MAU · Paying DAU/Paying MAU</small></div><div class="ch"><canvas id="c-ratios"></canvas></div></div>
     <div class="chart-card"><div class="chart-title">MAU MoM Growth<small>%</small></div><div class="ch"><canvas id="c-growth"></canvas></div></div>
   </div>
+  ${analysis.users}
 
   <div class="sec-label">Acquisition &amp; Revenue</div>
   <div class="kpi-grid">
@@ -467,6 +495,7 @@ function render(rows, tab, geoData=[]) {
     <div class="chart-card"><div class="chart-title">Transactions &amp; NPU<small>monthly</small></div><div class="ch"><canvas id="c-txn"></canvas></div></div>
     <div class="chart-card"><div class="chart-title">Paying Users (Cumulative)<small>unique payers</small></div><div class="ch"><canvas id="c-pu"></canvas></div></div>
   </div>
+  ${analysis.acquisition}
 
   <div class="sec-label">Playtime &amp; Engagement</div>
   <div class="kpi-grid">
@@ -485,6 +514,7 @@ function render(rows, tab, geoData=[]) {
     <div class="chart-card"><div class="chart-title">Monthly Playtime<small>total vs paid (mins)</small></div><div class="ch"><canvas id="c-pt"></canvas></div></div>
     <div class="chart-card"><div class="chart-title">Playtime / LDAU<small>mins per user</small></div><div class="ch"><canvas id="c-ptldau"></canvas></div></div>
   </div>
+  ${analysis.playtime}
 
   <div class="sec-label">Full Data Table</div>
   <div class="tbl-wrap"><table id="tbl"></table></div>`;
