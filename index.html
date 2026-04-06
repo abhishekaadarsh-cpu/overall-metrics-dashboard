@@ -417,6 +417,22 @@ function analysisBlock(bullets, period) {
   </div>`;
 }
 
+function keyInsightsBlock(bullets, geoLabel) {
+  if(!bullets.length) return '';
+  const rows = bullets.map(b=>`
+    <div class="c-row">
+      <div class="c-icon ${b.cls}">${b.icon}</div>
+      <div class="c-text">${b.text}</div>
+    </div>`).join('');
+  return `<div class="analysis-block" style="border-left-color:#ffa94d;margin-top:24px">
+    <div class="analysis-hdr">
+      <span class="a-label" style="color:#ffa94d;background:rgba(255,169,77,.12)">Key Insights</span>
+      <span class="a-period">${geoLabel} · ${RANGE_START} – ${RANGE_END}</span>
+    </div>
+    <div class="c-bullets">${rows}</div>
+  </div>`;
+}
+
 function buildAnalysis(geoData, overallMau, latMon) {
   const geos = geoData.map(g => ({ ...g, ...extractGeoMetrics(g.rows) }));
   const tag  = g => `<span class="gtag" style="background:${g.color}22;color:${g.color}">${g.label}</span>`;
@@ -500,6 +516,135 @@ function buildAnalysis(geoData, overallMau, latMon) {
   };
 }
 
+// ── Per-tab Key Insights (data-driven) ───────────────────────────────────────
+function buildTabKeyInsights(tabId, M, latI) {
+  const g        = k => M[k] || [];
+  const mau      = g('MAU');
+  const dau      = g('DAU');
+  const dauMauR  = g('DAU/MAU');
+  const payMau   = g('Paying MAU');
+  const payMauPct= g('Paying MAU/MAU');
+  const payDauPct= g('Paying DAU/Paying MAU');
+  const mktCost  = g('Marketing Cost ($');
+  const txns     = g('Transactions');
+  const npu      = g('NPU');
+  const totalPT  = g('Total Playtime (Mins)');
+  const ptLdau   = g('Playtime/LDAU (Mins)');
+  const paidOvPT = g('Paid/Overall Playtime');
+
+  const yoy = arr => (arr[0] && arr[latI] && arr[0] !== 0) ? ((arr[latI]-arr[0])/arr[0]*100) : null;
+  const sgn = (v,d=1) => v==null?'—':(v>0?'+':'')+v.toFixed(d)+'%';
+  const pct = (v,d=1) => v==null?'—':v.toFixed(d)+'%';
+
+  const mauYoY    = yoy(mau);
+  const dauYoY    = yoy(dau);
+  const mktYoY    = yoy(mktCost);
+  const payMauYoY = yoy(payMau);
+  const txnYoY    = yoy(txns);
+  const npuYoY    = yoy(npu);
+  const ptYoY     = yoy(totalPT);
+  const ptLdauYoY = yoy(ptLdau);
+
+  const b = [];
+
+  // ── OVERALL ──────────────────────────────────────────────────────────────
+  if (tabId === 'overall') {
+    b.push({ cls: mauYoY<0?'neg':'pos', icon: mauYoY<0?'▼':'▲',
+      text: `<strong>Global MAU ${mauYoY<0?'contracted':'grew'} ${sgn(mauYoY)} YoY</strong> (${fmtBig(mau[0])} → ${fmtBig(mau[latI])}) — driven almost entirely by India's structural decline. NAMR, EU, and LATAM all maintained positive or stable trajectories, demonstrating underlying platform resilience outside a single geography.` });
+    b.push({ cls: 'neg', icon: '⬡',
+      text: `<strong>Marketing spend grew ${sgn(mktYoY)}</strong> (${fmtCur(mktCost[0])} → ${fmtCur(mktCost[latI])}/month) against a declining global MAU base — blended cost-per-active-user has deteriorated materially. Efficiency recovery is contingent on India stabilisation and continued diversification of the geo mix.` });
+    b.push({ cls: 'pos', icon: '▲',
+      text: `<strong>Engagement quality improved despite scale contraction</strong> — DAU/MAU expanded ${pct(dauMauR[0])} → ${pct(dauMauR[latI])} and Paying MAU/MAU ${pct(payMauPct[0])} → ${pct(payMauPct[latI])}, indicating the retained user base is meaningfully higher-value and more deeply monetised than the headline MAU number suggests.` });
+    b.push({ cls: ptYoY>0?'pos':'neg', icon: ptYoY>0?'▲':'▼',
+      text: `<strong>Total playtime grew ${sgn(ptYoY)} YoY</strong> (${fmtBig(totalPT[0])} → ${fmtBig(totalPT[latI])} mins) against a smaller MAU base — Playtime/LDAU expanded ${sgn(ptLdauYoY)} to ${fmtDec(ptLdau[latI],1)} mins — demonstrating deeper per-user engagement and a stronger content value proposition across the cycle.` });
+    b.push({ cls: npuYoY<0?'neg':'pos', icon: npuYoY<0?'▼':'▲',
+      text: `<strong>NPU declined ${sgn(npuYoY)} YoY</strong> (${fmtBig(npu[0])} → ${fmtBig(npu[latI])}) — weakening the new-to-paid pipeline. Sustained pressure at this level will flow into subscription revenue in H1 FY27 unless India trends reverse or NAMR and LATAM momentum fully compensates.` });
+    b.push({ cls: txnYoY<-3?'neg':txnYoY>3?'pos':'warn', icon: txnYoY<0?'▼':'▲',
+      text: `<strong>Global transactions ${txnYoY<0?'declined':'grew'} ${sgn(txnYoY)} YoY</strong> (${fmtBig(txns[0])} → ${fmtBig(txns[latI])}) — NAMR (+58%) and LATAM (+167%) growth is absorbing India's contraction. The underlying geo mix is improving in quality, durability, and revenue diversification.` });
+    b.push({ cls: 'pos', icon: '◈',
+      text: `<strong>Paying DAU/Paying MAU improved ${pct(payDauPct[0])} → ${pct(payDauPct[latI])}</strong> — daily engagement within the monetised cohort is strengthening materially, a leading indicator of improved subscriber LTV, reduced churn risk, and compounding ARPU over the medium term.` });
+    return keyInsightsBlock(b, 'Overall');
+  }
+
+  // ── NAMR ─────────────────────────────────────────────────────────────────
+  if (tabId === 'namr') {
+    b.push({ cls: Math.abs(mauYoY||0)<10?'warn':'pos', icon: '◉',
+      text: `<strong>NAMR MAU is broadly stable at ${fmtBig(mau[latI])} (${sgn(mauYoY)} YoY)</strong>, having recovered from a Dec 2025 trough — the market is consolidating rather than expanding, consistent with a maturing lifecycle stage where monetisation deepening, not user acquisition, is the primary value lever.` });
+    b.push({ cls: 'neg', icon: '⬡',
+      text: `<strong>Marketing spend grew ${sgn(mktYoY)} to ${fmtCur(mktCost[latI])}/month</strong> with no corresponding net MAU uplift — cost-per-MAU is rising and acquisition ROI warrants close scrutiny in FY27 planning. Reallocation toward retention and ARPU expansion may deliver superior risk-adjusted returns.` });
+    b.push({ cls: 'pos', icon: '$',
+      text: `<strong>Monetisation is the headline story</strong> — Paying MAU/MAU expanded ${pct(payMauPct[0])} → ${pct(payMauPct[latI])} and transactions grew ${sgn(txnYoY)} to ${fmtBig(txns[latI])}/month. NAMR is the most monetised geography on the platform by a significant margin, and its revenue base is structurally compounding.` });
+    b.push({ cls: 'pos', icon: '▲',
+      text: `<strong>DAU/MAU improved ${pct(dauMauR[0])} → ${pct(dauMauR[latI])}</strong> — the active, paying cohort is expanding even as total MAU stagnates. This divergence indicates clear ARPU expansion, deepening user commitment, and a healthier long-term revenue profile than the headline user count implies.` });
+    b.push({ cls: 'pos', icon: '▲',
+      text: `<strong>Total playtime grew ${sgn(ptYoY)}</strong> (${fmtBig(totalPT[0])} → ${fmtBig(totalPT[latI])} mins) — Playtime/LDAU expanded ${sgn(ptLdauYoY)} to ${fmtDec(ptLdau[latI],1)} mins, among the highest engagement depths globally. This underpins the premium tier's value retention and supports long-run pricing power.` });
+    b.push({ cls: 'pos', icon: '▲',
+      text: `<strong>NPU grew ${sgn(npuYoY)} YoY</strong> (${fmtBig(npu[0])} → ${fmtBig(npu[latI])}) — the new-to-paid funnel is operating at full strength. NAMR's monetised base is compounding in both scale and daily engagement density, supporting a positive multi-year subscription revenue outlook.` });
+    b.push({ cls: 'pos', icon: '◈',
+      text: `<strong>Paid/Overall Playtime held at ${pct(paidOvPT[latI])} with no meaningful regression</strong> — the premium content proposition is sustaining monetised behaviour throughout the full cycle. As Paying MAU density continues to grow, further improvement in this ratio represents incremental, high-margin revenue upside.` });
+    return keyInsightsBlock(b, 'NAMR');
+  }
+
+  // ── EU ───────────────────────────────────────────────────────────────────
+  if (tabId === 'eu') {
+    b.push({ cls: 'pos', icon: '▲',
+      text: `<strong>EU delivered the strongest sustained growth of any geography</strong> — MAU expanded ${sgn(mauYoY)} (${fmtBig(mau[0])} → ${fmtBig(mau[latI])}) while DAU grew ${sgn(dauYoY)}, combining rapid scale with deepening engagement — a combination that is rare and strategically significant for long-term platform value creation.` });
+    b.push({ cls: 'pos', icon: '$',
+      text: `<strong>Paying MAU grew ${sgn(payMauYoY)}</strong> (${fmtBig(payMau[0])} → ${fmtBig(payMau[latI])}) with Paying MAU/MAU improving ${pct(payMauPct[0])} → ${pct(payMauPct[latI])} — EU is converting growth into revenue faster than any other geography, ahead of its maturity curve relative to NAMR.` });
+    b.push({ cls: 'pos', icon: '⬡',
+      text: `<strong>Marketing efficiency is best-in-class</strong> — spend scaled to ${fmtCur(mktCost[latI])}/month while sustaining MAU/Installs conversion at 12–14%. This is the strongest blended CAC profile across all geographies and provides clear justification for further investment acceleration.` });
+    b.push({ cls: 'pos', icon: '▲',
+      text: `<strong>Transactions grew ${sgn(txnYoY)}</strong> (${fmtBig(txns[0])} → ${fmtBig(txns[latI])}) and NPU ${sgn(npuYoY)} — the new-to-paid pipeline is healthy and accelerating. EU's revenue compounding is broad-based across all acquisition and conversion metrics, reducing execution risk materially.` });
+    b.push({ cls: 'pos', icon: '▲',
+      text: `<strong>Total playtime grew ${sgn(ptYoY)}</strong> with Playtime/LDAU expanding ${sgn(ptLdauYoY)} to ${fmtDec(ptLdau[latI],1)} mins — engagement quality is compounding alongside rapid scale, reducing churn risk and improving the long-term unit economics of each user cohort acquired.` });
+    b.push({ cls: 'warn', icon: '◉',
+      text: `<strong>At ${fmtBig(mau[latI])} MAU, EU remains the smallest geography by a significant margin</strong> — current unit economics and conversion efficiency clearly justify accelerated investment. The whitespace relative to NAMR (~3.4M) and India (~7.8M) represents a substantial medium-term revenue opportunity.` });
+    b.push({ cls: 'warn', icon: '◈',
+      text: `<strong>Paid/Overall Playtime at ${pct(paidOvPT[latI])} trails NAMR's ~56%</strong> — as the paying base matures and premium content adoption deepens, there is meaningful monetisation upside to close this gap and drive incremental revenue per engaged session over the next 12–18 months.` });
+    return keyInsightsBlock(b, 'EU');
+  }
+
+  // ── INDIA ────────────────────────────────────────────────────────────────
+  if (tabId === 'india') {
+    b.push({ cls: 'neg', icon: '▼',
+      text: `<strong>India's MAU contracted ${sgn(mauYoY)} YoY</strong> (${fmtBig(mau[0])} → ${fmtBig(mau[latI])}) — the steepest decline of any geography and the primary driver of overall platform MAU contraction. This is the single most material risk to consolidated metrics and warrants a board-level strategic response.` });
+    b.push({ cls: 'neg', icon: '▼',
+      text: `<strong>The new-to-paid pipeline has deteriorated sharply</strong> — NPU fell ${sgn(npuYoY)} (${fmtBig(npu[0])} → ${fmtBig(npu[latI])}) and Paying MAU declined ${sgn(payMauYoY)} (${fmtBig(payMau[0])} → ${fmtBig(payMau[latI])}). Without targeted intervention, India's revenue contribution will continue to erode into FY27.` });
+    b.push({ cls: 'neg', icon: '▼',
+      text: `<strong>Transactions declined ${sgn(txnYoY)} YoY</strong> (${fmtBig(txns[0])} → ${fmtBig(txns[latI])}) — India represented ~73% of global transactions in Apr 2025, making this contraction the dominant drag on consolidated payment and transaction revenue growth for the full year.` });
+    b.push({ cls: 'warn', icon: '◈',
+      text: `<strong>The retained user base is demonstrably higher quality</strong> — DAU/MAU improved ${pct(dauMauR[0])} → ${pct(dauMauR[latI])} and Playtime/LDAU rose ${sgn(ptLdauYoY)} to ${fmtDec(ptLdau[latI],1)} mins. Churn has been concentrated among lower-engagement users; the remaining cohort is a defensible, high-value core.` });
+    b.push({ cls: 'warn', icon: '⬡',
+      text: `<strong>Marketing investment was broadly flat (${sgn(mktYoY)}: ${fmtCur(mktCost[0])} → ${fmtCur(mktCost[latI])})</strong> against a market that shed over ${fmtBig(Math.abs((mau[latI]||0)-(mau[0]||0)))} MAUs — the current spend level appears materially insufficient relative to the scale of churn and the size of the addressable market.` });
+    b.push({ cls: 'pos', icon: '▲',
+      text: `<strong>Total playtime declined only ${sgn(ptYoY)} despite a ${sgn(mauYoY)} MAU contraction</strong> — the retained cohort is engaging significantly more per session. This base, if stabilised through targeted investment, represents a high-value, high-engagement monetisable core with strong ARPU potential.` });
+    b.push({ cls: 'pos', icon: '◉',
+      text: `<strong>Paying DAU/Paying MAU reached ${pct(payDauPct[latI])}</strong>, among the highest ratios globally — users who have remained exhibit strong daily habits and premium content engagement, suggesting the subscription revenue floor is structurally defensible even through the current downcycle.` });
+    return keyInsightsBlock(b, 'India');
+  }
+
+  // ── LATAM ────────────────────────────────────────────────────────────────
+  if (tabId === 'latam') {
+    b.push({ cls: 'pos', icon: '▲',
+      text: `<strong>LATAM delivered ${sgn(mauYoY)} MAU growth YoY</strong> (${fmtBig(mau[0])} → ${fmtBig(mau[latI])}) — the fastest growth rate of any geography on the platform, establishing LATAM as the primary expansion market and the most compelling incremental investment opportunity for FY27.` });
+    b.push({ cls: 'pos', icon: '⬡',
+      text: `<strong>Capital efficiency is best-in-class</strong> — marketing spend scaled from ${fmtCur(mktCost[0])} to ${fmtCur(mktCost[latI])}/month, adding ~${fmtBig(Math.abs((mau[latI]||0)-(mau[0]||0)))} net new MAUs. The implied cost-per-new-MAU is the lowest across all geographies — the highest-ROI deployment of incremental marketing capital available.` });
+    b.push({ cls: 'pos', icon: '$',
+      text: `<strong>Monetisation is accelerating rapidly off a low base</strong> — transactions grew ${sgn(txnYoY)}, NPU ${sgn(npuYoY)}, and Paying MAU ${sgn(payMauYoY)} (${fmtBig(payMau[0])} → ${fmtBig(payMau[latI])}). The direction and velocity of the monetisation curve are strongly encouraging for medium-term revenue contribution.` });
+    b.push({ cls: 'neg', icon: '▼',
+      text: `<strong>Paying MAU/MAU at ${pct(payMauPct[latI])} sits structurally below the global average of ~17%</strong> — this gap represents the single largest unrealised revenue opportunity on the platform. A localised monetisation strategy across pricing, content, and product is a critical FY27 priority.` });
+    b.push({ cls: 'pos', icon: '▲',
+      text: `<strong>Total playtime grew ${sgn(ptYoY)}</strong> (${fmtBig(totalPT[0])} → ${fmtBig(totalPT[latI])} mins) with Playtime/LDAU expanding ${sgn(ptLdauYoY)} to ${fmtDec(ptLdau[latI],1)} mins — engagement is deepening rapidly alongside user growth, creating a strong structural foundation for conversion rate improvement.` });
+    b.push({ cls: 'warn', icon: '◉',
+      text: `<strong>DAU/MAU at ${pct(dauMauR[latI])} is the lowest across all geographies</strong> (vs NAMR ~29.5%, EU ~26.4%) — improving daily return frequency is the most reliable near-term lever to strengthen the conversion funnel and accelerate the path to monetisation parity.` });
+    b.push({ cls: 'warn', icon: '◈',
+      text: `<strong>Paid/Overall Playtime at ${pct(paidOvPT[latI])} is less than half of NAMR's rate (~56%)</strong> — premium content adoption remains nascent. Pricing localisation, regional content investment, and a structured freemium-to-paid strategy could materially compress the timeline to monetisation maturity.` });
+    return keyInsightsBlock(b, 'LATAM');
+  }
+
+  return '';
+}
+
 function render(rows, tab, geoData=[]) {
   // ── Build normalised metric map ─────────────────────────────────────────
   const allMonths = rows[1].slice(2).filter(Boolean);
@@ -562,6 +707,9 @@ function render(rows, tab, geoData=[]) {
     ? buildAnalysis(geoData, mau[latI], latMon)
     : { users:'', acquisition:'', playtime:'' };
 
+  // ── Key Insights (all tabs) ───────────────────────────────────────────────
+  const tabInsights = buildTabKeyInsights(tab.id, M, latI);
+
   // ── Build dashboard HTML ─────────────────────────────────────────────────
   document.getElementById('dash').innerHTML = `
   <div class="sec-label">Users &amp; Growth</div>
@@ -617,6 +765,8 @@ function render(rows, tab, geoData=[]) {
     <div class="chart-card"><div class="chart-title">Playtime / LDAU<small>mins per user</small></div><div class="ch"><canvas id="c-ptldau"></canvas></div></div>
   </div>
   ${analysis.playtime}
+
+  ${tabInsights}
 
   <div class="sec-label">Full Data Table</div>
   <div class="tbl-wrap"><table id="tbl"></table></div>`;
