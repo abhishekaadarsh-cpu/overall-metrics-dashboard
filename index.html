@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Overall Metrics Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --accent: #6c63ff;
+    --accent2: #00d4aa;
+    --accent3: #ff6b6b;
+    --accent4: #ffa94d;
+    --text: #e8eaf0;
+    --muted: #8890a8;
+    --border: #2e3348;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+  header {
+    background: linear-gradient(135deg, #1a1d27 0%, #16192a 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.3px; }
+  header h1 span { color: var(--accent); }
+  #last-updated { font-size: 0.78rem; color: var(--muted); }
+  #status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #00d4aa; margin-right: 6px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+
+  main { max-width: 1400px; margin: 0 auto; padding: 28px 24px 48px; }
+
+  .section-label {
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 12px; margin-top: 32px;
+  }
+
+  /* KPI Cards */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+  .kpi-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px 20px; position: relative; overflow: hidden;
+    transition: border-color .2s, transform .15s;
+  }
+  .kpi-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .kpi-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--card-color, var(--accent));
+  }
+  .kpi-label { font-size: 0.72rem; color: var(--muted); font-weight: 600; letter-spacing: .5px; text-transform: uppercase; margin-bottom: 8px; }
+  .kpi-value { font-size: 1.55rem; font-weight: 800; line-height: 1; }
+  .kpi-sub { font-size: 0.75rem; margin-top: 7px; color: var(--muted); }
+  .badge { display: inline-block; padding: 2px 7px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; margin-top: 5px; }
+  .badge.up { background: rgba(0,212,170,.15); color: #00d4aa; }
+  .badge.down { background: rgba(255,107,107,.15); color: #ff6b6b; }
+  .badge.neutral { background: rgba(108,99,255,.15); color: #a09fff; }
+
+  /* Charts */
+  .charts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(540px, 1fr)); gap: 20px; }
+  @media(max-width:620px){ .charts-grid { grid-template-columns: 1fr; } }
+  .chart-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 22px 24px;
+  }
+  .chart-title { font-size: 0.85rem; font-weight: 700; margin-bottom: 18px; color: var(--text); }
+  .chart-title span { color: var(--muted); font-weight: 400; font-size: 0.78rem; margin-left: 6px; }
+  .chart-wrap { position: relative; height: 220px; }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+  thead tr { background: var(--surface2); }
+  th { padding: 10px 14px; text-align: right; color: var(--muted); font-weight: 600; font-size: 0.7rem; letter-spacing: .5px; text-transform: uppercase; white-space: nowrap; }
+  th:first-child { text-align: left; }
+  td { padding: 10px 14px; text-align: right; border-top: 1px solid var(--border); white-space: nowrap; }
+  td:first-child { text-align: left; color: var(--muted); font-weight: 600; }
+  tr:hover td { background: rgba(108,99,255,.06); }
+  .num { font-variant-numeric: tabular-nums; }
+
+  #loading {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 60vh; gap: 16px;
+  }
+  .spinner {
+    width: 40px; height: 40px; border: 3px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .trend-inline { font-size: 0.7rem; padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Overall <span>Metrics</span> Dashboard</h1>
+  <div id="last-updated"><span id="status-dot"></span>Loading…</div>
+</header>
+
+<main>
+  <div id="loading"><div class="spinner"></div><div style="color:var(--muted);font-size:.85rem">Fetching live data from Google Sheets…</div></div>
+  <div id="dashboard" style="display:none">
+    <div class="section-label">Latest Month Snapshot</div>
+    <div class="kpi-grid" id="kpi-grid"></div>
+
+    <div class="section-label">Trends</div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Monthly Active Users (MAU) <span>vs DAU</span></div>
+        <div class="chart-wrap"><canvas id="chart-mau"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Installs <span>monthly</span></div>
+        <div class="chart-wrap"><canvas id="chart-installs"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Paying Users <span>MAU &amp; DAU</span></div>
+        <div class="chart-wrap"><canvas id="chart-paying"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Engagement Ratios <span>DAU/MAU · Paying MAU/MAU</span></div>
+        <div class="chart-wrap"><canvas id="chart-ratios"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Marketing Cost <span>USD</span></div>
+        <div class="chart-wrap"><canvas id="chart-marketing"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">MAU Growth <span>month-over-month %</span></div>
+        <div class="chart-wrap"><canvas id="chart-growth"></canvas></div>
+      </div>
+    </div>
+
+    <div class="section-label">Full Data Table</div>
+    <div class="table-wrap">
+      <table id="data-table"></table>
+    </div>
+  </div>
+</main>
+
+<script>
+const SHEET_ID = '1vn7lZbtU-T4v09N0veR_VLKTtSOUFlQT_K_0yF9J3Es';
+const SHEET_NAME = 'Overall Metrics';
+const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
+
+function parseCSV(text) {
+  const rows = [];
+  const re = /("(?:[^"]|"")*"|[^,\n]*)(,|\n|$)/g;
+  let row = [];
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    let val = m[1];
+    if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1,-1).replace(/""/g,'"');
+    row.push(val.trim());
+    if (m[2] === '\n' || m[2] === '') { rows.push(row); row = []; }
+    if (m[2] === '') break;
+  }
+  if (row.length) rows.push(row);
+  return rows;
+}
+
+function toNum(s) {
+  if (!s) return null;
+  const n = parseFloat(s.replace(/[,$%]/g,''));
+  return isNaN(n) ? null : n;
+}
+
+function fmt(n, style='compact') {
+  if (n === null || n === undefined) return '—';
+  if (style === 'pct') return n.toFixed(1) + '%';
+  if (style === 'currency') {
+    if (n >= 1e6) return '$' + (n/1e6).toFixed(1) + 'M';
+    if (n >= 1e3) return '$' + (n/1e3).toFixed(0) + 'K';
+    return '$' + n.toFixed(0);
+  }
+  if (n >= 1e6) return (n/1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+  return n.toLocaleString();
+}
+
+const PALETTE = ['#6c63ff','#00d4aa','#ffa94d','#ff6b6b','#74c7ec','#a6e3a1','#f38ba8','#cba6f7'];
+
+function makeChart(id, type, labels, datasets, opts={}) {
+  const ctx = document.getElementById(id).getContext('2d');
+  const gridColor = 'rgba(255,255,255,0.05)';
+  return new Chart(ctx, {
+    type,
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#8890a8', font: { size: 11 }, boxWidth: 12, padding: 14 } },
+        tooltip: {
+          backgroundColor: '#1a1d27', borderColor: '#2e3348', borderWidth: 1,
+          titleColor: '#e8eaf0', bodyColor: '#8890a8',
+          callbacks: opts.tooltipCallbacks || {}
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#8890a8', font:{size:10}, maxRotation: 45 }, grid: { color: gridColor } },
+        y: { ticks: { color: '#8890a8', font:{size:10}, callback: opts.yFmt || (v=>fmt(v)) }, grid: { color: gridColor }, ...( opts.y || {}) },
+        ...(opts.y2 ? { y2: { position:'right', ticks:{color:'#8890a8',font:{size:10},callback:opts.y2Fmt||(v=>v)}, grid:{drawOnChartArea:false}, ...opts.y2 } } : {})
+      }
+    }
+  });
+}
+
+async function load() {
+  try {
+    const resp = await fetch(CSV_URL + '&_=' + Date.now());
+    const text = await resp.text();
+    const rows = parseCSV(text);
+    render(rows);
+  } catch(e) {
+    document.getElementById('loading').innerHTML = `<div style="color:#ff6b6b;text-align:center">Failed to fetch data.<br><small>${e.message}</small></div>`;
+  }
+}
+
+function render(rows) {
+  // Row 1 = header months (cols 2+)
+  const months = rows[1].slice(2).filter(Boolean);
+
+  // Build metric map
+  const metrics = {};
+  for (const row of rows.slice(2)) {
+    const label = row[1];
+    if (!label) continue;
+    metrics[label] = row.slice(2, 2 + months.length).map(toNum);
+  }
+
+  const mau        = metrics['MAU']              || [];
+  const mauGrowth  = metrics['MAU Growth']       || [];
+  const mktCost    = metrics['Marketing Cost ($ '] || [];
+  const installs   = metrics['Installs']         || [];
+  const dau        = metrics['DAU']              || [];
+  const dauMau     = metrics['DAU/MAU']          || [];
+  const payingMau  = metrics['Paying MAU']       || [];
+  const payingDau  = metrics['Paying DAU']       || [];
+  const payMauPct  = metrics['Paying MAU/MAU']   || [];
+  const payDauPct  = metrics['Paying DAU/Paying MAU'] || [];
+  const cumInstalls= metrics['Cumulative Installs'] || [];
+
+  // Latest non-null index
+  const latestIdx = mau.reduce((acc, v, i) => v !== null ? i : acc, 0);
+  const prevIdx   = latestIdx > 0 ? latestIdx - 1 : 0;
+
+  const latestMonth = months[latestIdx];
+
+  function delta(arr, i) {
+    if (i === 0 || arr[i] === null || arr[i-1] === null) return null;
+    return ((arr[i] - arr[i-1]) / arr[i-1]) * 100;
+  }
+
+  // ─── KPI Cards ───────────────────────────────────────────────────────────
+  const kpis = [
+    { label:'MAU', value: fmt(mau[latestIdx]), change: delta(mau,latestIdx), color:'#6c63ff', fmt:'pct' },
+    { label:'DAU', value: fmt(dau[latestIdx]), change: delta(dau,latestIdx), color:'#00d4aa', fmt:'pct' },
+    { label:'DAU / MAU', value: dauMau[latestIdx]?.toFixed(1)+'%', change: dauMau[latestIdx]-dauMau[prevIdx], color:'#74c7ec', fmt:'pp' },
+    { label:'Paying MAU', value: fmt(payingMau[latestIdx]), change: delta(payingMau,latestIdx), color:'#ffa94d', fmt:'pct' },
+    { label:'Paying DAU', value: fmt(payingDau[latestIdx]), change: delta(payingDau,latestIdx), color:'#f38ba8', fmt:'pct' },
+    { label:'Paying MAU %', value: payMauPct[latestIdx]?.toFixed(1)+'%', change: payMauPct[latestIdx]-payMauPct[prevIdx], color:'#cba6f7', fmt:'pp' },
+    { label:'Monthly Installs', value: fmt(installs[latestIdx]), change: delta(installs,latestIdx), color:'#a6e3a1', fmt:'pct' },
+    { label:'Cumulative Installs', value: fmt(cumInstalls[latestIdx]), change: null, color:'#89dceb', fmt:'pct' },
+    { label:'Marketing Cost', value: fmt(mktCost[latestIdx],'currency'), change: delta(mktCost,latestIdx), color:'#eba0ac', fmt:'pct' },
+  ];
+
+  const grid = document.getElementById('kpi-grid');
+  grid.innerHTML = kpis.map(k => {
+    let badge = '';
+    if (k.change !== null) {
+      const dir = k.change > 0 ? 'up' : k.change < 0 ? 'down' : 'neutral';
+      const arrow = k.change > 0 ? '▲' : '▼';
+      const val = Math.abs(k.change).toFixed(1);
+      badge = `<span class="badge ${dir}">${arrow} ${val}${k.fmt==='pp'?'pp':'%'} MoM</span>`;
+    }
+    return `<div class="kpi-card" style="--card-color:${k.color}">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.value}</div>
+      ${badge}
+      <div class="kpi-sub">${latestMonth}</div>
+    </div>`;
+  }).join('');
+
+  // ─── Charts ──────────────────────────────────────────────────────────────
+  const shortMonths = months.map(m => m.replace(' 20','\'').replace(' 202','\'2'));
+
+  // MAU + DAU
+  makeChart('chart-mau', 'line', shortMonths, [
+    { label:'MAU', data: mau, borderColor:'#6c63ff', backgroundColor:'rgba(108,99,255,.12)', fill:true, tension:.35, pointRadius:2 },
+    { label:'DAU', data: dau, borderColor:'#00d4aa', backgroundColor:'rgba(0,212,170,.08)', fill:true, tension:.35, pointRadius:2 }
+  ], { yFmt: v => fmt(v) });
+
+  // Installs
+  makeChart('chart-installs', 'bar', shortMonths, [
+    { label:'Monthly Installs', data: installs, backgroundColor: months.map((_,i)=>i===latestIdx?'#6c63ff':'rgba(108,99,255,.45)'), borderRadius:4 }
+  ], { yFmt: v => fmt(v) });
+
+  // Paying
+  makeChart('chart-paying', 'line', shortMonths, [
+    { label:'Paying MAU', data: payingMau, borderColor:'#ffa94d', backgroundColor:'rgba(255,169,77,.1)', fill:true, tension:.35, pointRadius:2 },
+    { label:'Paying DAU', data: payingDau, borderColor:'#f38ba8', backgroundColor:'rgba(243,139,168,.1)', fill:true, tension:.35, pointRadius:2 }
+  ], { yFmt: v => fmt(v) });
+
+  // Ratios
+  makeChart('chart-ratios', 'line', shortMonths, [
+    { label:'DAU/MAU %', data: dauMau, borderColor:'#74c7ec', tension:.35, pointRadius:2, yAxisID:'y' },
+    { label:'Paying MAU/MAU %', data: payMauPct, borderColor:'#cba6f7', tension:.35, pointRadius:2, yAxisID:'y' },
+    { label:'Paying DAU/Paying MAU %', data: payDauPct, borderColor:'#a6e3a1', tension:.35, pointRadius:2, borderDash:[4,3], yAxisID:'y' }
+  ], { yFmt: v => v?.toFixed(1)+'%' });
+
+  // Marketing
+  makeChart('chart-marketing', 'bar', shortMonths, [
+    { label:'Marketing Cost', data: mktCost, backgroundColor: months.map((_,i)=>i===latestIdx?'#eba0ac':'rgba(235,160,172,.45)'), borderRadius:4 }
+  ], { yFmt: v => fmt(v,'currency') });
+
+  // MAU Growth
+  const growthColors = mauGrowth.map(v => v === null ? 'transparent' : v >= 0 ? 'rgba(0,212,170,.7)' : 'rgba(255,107,107,.7)');
+  makeChart('chart-growth', 'bar', shortMonths, [
+    { label:'MoM Growth %', data: mauGrowth, backgroundColor: growthColors, borderRadius:4 }
+  ], { yFmt: v => v?.toFixed(1)+'%' });
+
+  // ─── Table ───────────────────────────────────────────────────────────────
+  const table = document.getElementById('data-table');
+  const thead = `<thead><tr><th>Metric</th>${months.map(m=>`<th>${m.replace(' 20','&thinsp;\'').replace(' 202','&thinsp;\'2')}</th>`).join('')}</tr></thead>`;
+
+  const tableMetrics = [
+    { key:'MAU', fmt:'num' },
+    { key:'MAU Growth', fmt:'pct' },
+    { key:'DAU', fmt:'num' },
+    { key:'DAU/MAU', fmt:'pct' },
+    { key:'Paying MAU', fmt:'num' },
+    { key:'Paying MAU/MAU', fmt:'pct' },
+    { key:'Paying DAU', fmt:'num' },
+    { key:'Paying DAU/Paying MAU', fmt:'pct' },
+    { key:'Installs', fmt:'num' },
+    { key:'Cumulative Installs', fmt:'num' },
+    { key:'Marketing Cost ($ ', label:'Marketing Cost', fmt:'currency' },
+  ];
+
+  const tbody = '<tbody>' + tableMetrics.map(m => {
+    const data = metrics[m.key] || [];
+    const cells = data.map((v,i) => {
+      if (v === null) return '<td>—</td>';
+      let disp;
+      if (m.fmt==='pct') disp = v.toFixed(1)+'%';
+      else if (m.fmt==='currency') disp = '$'+(v/1e6).toFixed(2)+'M';
+      else disp = v >= 1e6 ? (v/1e6).toFixed(2)+'M' : v>=1e3 ? (v/1e3).toFixed(1)+'K' : v.toLocaleString();
+      const highlight = i === latestIdx ? ' style="color:#e8eaf0;font-weight:700"' : '';
+      return `<td class="num"${highlight}>${disp}</td>`;
+    }).join('');
+    return `<tr><td>${m.label||m.key}</td>${cells}</tr>`;
+  }).join('') + '</tbody>';
+
+  table.innerHTML = thead + tbody;
+
+  // Done
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('last-updated').innerHTML =
+    `<span id="status-dot"></span>Live · Last fetched ${new Date().toLocaleTimeString()} · Latest data: ${latestMonth}`;
+}
+
+load();
+// Auto-refresh every 5 minutes
+setInterval(load, 5 * 60 * 1000);
+</script>
+</body>
+</html>
