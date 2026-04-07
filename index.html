@@ -810,6 +810,7 @@ function render(rows, tab, geoData=[]) {
     <div class="chart-card"><div class="chart-title">Active Paying User Retention<small>M0 · M1 · M3 · M6 cohort %</small></div><div class="ch"><canvas id="c-retention"></canvas></div></div>
   </div>
 
+  ${tab.id==='overall' ? `
   <div style="font-size:.68rem;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:#ffa94d;margin:26px 0 13px;display:flex;align-items:center;gap:10px;">
     Blockbuster Metrics <span style="font-weight:400;letter-spacing:.4px;text-transform:none;color:var(--muted);font-size:.67rem">· shows by lifetime revenue threshold</span>
     <span style="flex:1;height:1px;background:rgba(255,169,77,.25);margin-left:4px;"></span>
@@ -826,7 +827,7 @@ function render(rows, tab, geoData=[]) {
   <div class="charts-2" style="margin-top:16px">
     <div class="chart-card"><div class="chart-title">Shows with Lifetime Revenue &gt; $1Mn<small>English · German · India</small></div><div class="ch"><canvas id="c-bb-1mn"></canvas></div></div>
     <div class="chart-card"><div class="chart-title">Shows with Lifetime Revenue &gt; $500K<small>English · German · India</small></div><div class="ch"><canvas id="c-bb-500k"></canvas></div></div>
-  </div>
+  </div>` : ''}
   ${analysis.acquisition}
 
   <div class="sec-label">Playtime &amp; Engagement</div>
@@ -944,17 +945,19 @@ function render(rows, tab, geoData=[]) {
     {label:'M6',data:retM6,borderColor:'#ff6b9d',borderDash:[2,4],pointRadius:retM6.map(v=>v!=null?4:0),pointBackgroundColor:'#ff6b9d',pointBorderColor:'#12122a',pointBorderWidth:1.5,tension:.38,spanGaps:false,borderWidth:2},
   ],{yFmt:v=>v!=null?v.toFixed(1)+'%':'', y:{min:20,max:100}});
 
-  mkChart('c-bb-1mn','line',bbSL,[
-    {label:'English', data:bbEn1mn.slice(0,bbLatI+1),borderColor:'#6c63ff',backgroundColor:'rgba(108,99,255,.08)',fill:true,tension:.3,pointRadius:4,borderWidth:2},
-    {label:'German',  data:bbDe1mn.slice(0,bbLatI+1),borderColor:'#ffa94d',tension:.3,pointRadius:4,borderWidth:2},
-    {label:'India',   data:bbIn1mn.slice(0,bbLatI+1),borderColor:'#ff6b6b',tension:.3,pointRadius:4,borderWidth:2}
-  ]);
+  if (tab.id === 'overall') {
+    mkChart('c-bb-1mn','line',bbSL,[
+      {label:'English', data:bbEn1mn.slice(0,bbLatI+1),borderColor:'#6c63ff',backgroundColor:'rgba(108,99,255,.08)',fill:true,tension:.3,pointRadius:4,borderWidth:2},
+      {label:'German',  data:bbDe1mn.slice(0,bbLatI+1),borderColor:'#ffa94d',tension:.3,pointRadius:4,borderWidth:2},
+      {label:'India',   data:bbIn1mn.slice(0,bbLatI+1),borderColor:'#ff6b6b',tension:.3,pointRadius:4,borderWidth:2}
+    ]);
 
-  mkChart('c-bb-500k','line',bbSL,[
-    {label:'English', data:bbEn500.slice(0,bbLatI+1),borderColor:'#6c63ff',backgroundColor:'rgba(108,99,255,.08)',fill:true,tension:.3,pointRadius:4,borderWidth:2},
-    {label:'German',  data:bbDe500.slice(0,bbLatI+1),borderColor:'#ffa94d',tension:.3,pointRadius:4,borderWidth:2},
-    {label:'India',   data:bbIn500.slice(0,bbLatI+1),borderColor:'#ff6b6b',tension:.3,pointRadius:4,borderWidth:2}
-  ]);
+    mkChart('c-bb-500k','line',bbSL,[
+      {label:'English', data:bbEn500.slice(0,bbLatI+1),borderColor:'#6c63ff',backgroundColor:'rgba(108,99,255,.08)',fill:true,tension:.3,pointRadius:4,borderWidth:2},
+      {label:'German',  data:bbDe500.slice(0,bbLatI+1),borderColor:'#ffa94d',tension:.3,pointRadius:4,borderWidth:2},
+      {label:'India',   data:bbIn500.slice(0,bbLatI+1),borderColor:'#ff6b6b',tension:.3,pointRadius:4,borderWidth:2}
+    ]);
+  }
 
   mkChart('c-ldau','line',SL,[
     {label:'Daily LDAU',data:dailyLdau,borderColor:'#6c63ff',backgroundColor:'rgba(108,99,255,.1)',fill:true,tension:.3,pointRadius:3},
