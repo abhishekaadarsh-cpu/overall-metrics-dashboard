@@ -385,6 +385,8 @@ function extractGeoMetrics(rows) {
         totalPT=g('Total Playtime (Mins)'), paidPT=g('Paid Playtime (Mins)'),
         ptLdau=g('Playtime/LDAU (Mins)'), paidOvPT=g('Paid/Overall Playtime'),
         dailyLdau=g('Daily LDAU'), paidLdauPct=g('Paid LDAU %');
+  const gRetM1=g('M1'), gRetM3=g('M3');
+  const latNonNull = arr => arr.reduce((a,v)=>v!=null?v:a, null);
   return {
     mauLat:mau[latI],         mauMoM:delta(mau,latI),
     dauLat:dau[latI],         dauMoM:delta(dau,latI),
@@ -400,6 +402,8 @@ function extractGeoMetrics(rows) {
     paidOvPTLat:paidOvPT[latI],
     ldauLat:dailyLdau[latI],  ldauMoM:delta(dailyLdau,latI),
     paidLdauPct:paidLdauPct[latI],
+    retM1Lat: latNonNull(gRetM1),
+    retM3Lat: latNonNull(gRetM3),
   };
 }
 
@@ -433,7 +437,7 @@ function keyInsightsBlock(bullets, geoLabel) {
   </div>`;
 }
 
-function buildAnalysis(geoData, overallMau, latMon) {
+function buildAnalysis(geoData, overallMau, latMon, overallRetM1, overallRetM3) {
   const geos = geoData.map(g => ({ ...g, ...extractGeoMetrics(g.rows) }));
   const tag  = g => `<span class="gtag" style="background:${g.color}22;color:${g.color}">${g.label}</span>`;
   const pct  = v => v==null?'—':(v>0?'+':'')+v.toFixed(1)+'%';
@@ -484,6 +488,13 @@ function buildAnalysis(geoData, overallMau, latMon) {
   const byNpu = rank(geos,'npuMoM'), botNpu=[...byNpu].reverse()[0];
   if(byNpu.length) ab.push({cls:botNpu?.npuMoM<-5?'warn':'pos', icon:botNpu?.npuMoM<-5?'▼':'▲',
     text:`<strong>New Paying Users (NPU):</strong> ${byNpu.map(g=>`${tag(g)} ${pct(g.npuMoM)}`).join(' · ')}. ${botNpu?.npuMoM<-10?tag(botNpu)+' NPU declining — watch top-of-funnel.':'Pipeline healthy across geos.'}`});
+  // M1 Retention ranked across geos
+  const byRetM1=rank(geos,'retM1Lat'), botRetM1=[...byRetM1].reverse()[0];
+  if(byRetM1.length) ab.push({
+    cls: byRetM1[0]?.retM1Lat>=70?'pos':byRetM1[0]?.retM1Lat>=60?'warn':'neg',
+    icon: byRetM1[0]?.retM1Lat>=70?'▲':'▼',
+    text: `<strong>M1 Paying User Retention (geo ranked):</strong> ${byRetM1.map(g=>`${tag(g)} ${fmtPct(g.retM1Lat)}`).join(' · ')}. ${overallRetM1!=null?`Platform overall M1: <strong>${fmtPct(overallRetM1)}</strong> · M3: <strong>${fmtPct(overallRetM3)}</strong> — ${overallRetM1>=70?'healthy cohort durability; compounding directly into subscriber LTV.':'M1 below 70% signals early attrition risk pressuring subscription LTV.'}`:''}`
+  });
 
   // ── PLAYTIME & ENGAGEMENT ─────────────────────────────────────────────────
   const pb = [];
@@ -596,6 +607,23 @@ function buildTabKeyInsights(tabId, M, latI) {
   const sgn = (v,d=1) => v==null?'—':(v>0?'+':'')+v.toFixed(d)+'%';
   const pct = (v,d=1) => v==null?'—':v.toFixed(d)+'%';
 
+  // ── Cohort retention ───────────────────────────────────────────────────────
+  const retM1arr = g('M1'), retM3arr = g('M3'), retM6arr = g('M6');
+  const latNN = arr => arr.reduce((a,v)=>v!=null?v:a, null);
+  const tabRetM1 = latNN(retM1arr);
+  const tabRetM3 = latNN(retM3arr);
+  const tabRetM6 = latNN(retM6arr);
+  const retBullet = (contextText) => {
+    const cls  = tabRetM1==null?'neu':tabRetM1>=70?'pos':tabRetM1>=60?'warn':'neg';
+    const icon = tabRetM1==null?'—':tabRetM1>=70?'▲':tabRetM1>=60?'◈':'▼';
+    const vals = [
+      `M1 <strong>${tabRetM1!=null?tabRetM1.toFixed(1)+'%':'—'}</strong>`,
+      `M3 <strong>${tabRetM3!=null?tabRetM3.toFixed(1)+'%':'—'}</strong>`,
+      ...(tabRetM6!=null?[`M6 <strong>${tabRetM6.toFixed(1)}%</strong>`]:[]),
+    ].join(' · ');
+    return { cls, icon, text: `<strong>Paying User Retention — ${vals}</strong> — ${contextText}` };
+  };
+
   const mauYoY    = yoy(mau);
   const dauYoY    = yoy(dau);
   const mktYoY    = yoy(mktCost);
@@ -640,6 +668,7 @@ function buildTabKeyInsights(tabId, M, latI) {
       text:`<strong>UGC is becoming a material revenue stream</strong> — ARR reached <strong>${fmtCur(ugcArrArr[ugcLI])}</strong> (${ugcArrYoY!=null?(ugcArrYoY>0?'+':'')+ugcArrYoY.toFixed(1)+'%':'—'} YoY), with UGC contribution to total revenue expanding <strong>${pct(ugcPctT[0])} → ${pct(ugcPctT[ugcLI])}</strong>. India UGC share accelerated to <strong>${pct(ugcPctI[ugcLI])}</strong> — the fastest growing contribution of any geography.`});
     b.push({ cls:'pos', icon:'◉',
       text:`<strong>Content monetisation flywheel gaining momentum</strong> — shows crossing $500K lifetime revenue grew from <strong>${ugcS500[0]} → ${ugcS500[ugcLI]}</strong> and $100K threshold from <strong>${ugcS100[0]} → ${ugcS100[ugcLI]}</strong>. Top US writer earnings grew <strong>${ugcEarnYoY!=null?(ugcEarnYoY>0?'+':'')+ugcEarnYoY.toFixed(1)+'%':'—'}</strong> to ${fmtCur(ugcEUS[ugcLI])}/month — a healthy signal for creator retention and supply quality.`});
+    b.push(retBullet(`M1 cohort retention trending upward across recent months. M3 and M6 funnels stable — indicating predictable subscriber LTV and durable recurring revenue compounding over the medium term.`));
 
     return keyInsightsBlock(b, 'Overall');
   }
@@ -660,6 +689,7 @@ function buildTabKeyInsights(tabId, M, latI) {
       text: `<strong>NPU grew ${sgn(npuYoY)} YoY</strong> (${fmtBig(npu[0])} → ${fmtBig(npu[latI])}) — the new-to-paid funnel is operating at full strength. NAMR's monetised base is compounding in both scale and daily engagement density, supporting a positive multi-year subscription revenue outlook.` });
     b.push({ cls: 'pos', icon: '◈',
       text: `<strong>Paid/Overall Playtime held at ${pct(paidOvPT[latI])} with no meaningful regression</strong> — the premium content proposition is sustaining monetised behaviour throughout the full cycle. As Paying MAU density continues to grow, further improvement in this ratio represents incremental, high-margin revenue upside.` });
+    b.push(retBullet(`NAMR has the deepest cohort retention of any geography — M3 and M6 durability compounds directly into subscriber LTV and reduces CAC dependency. This structural advantage supports pricing power and underpins the multi-year revenue compounding thesis.`));
     return keyInsightsBlock(b, 'NAMR');
   }
 
@@ -679,6 +709,7 @@ function buildTabKeyInsights(tabId, M, latI) {
       text: `<strong>At ${fmtBig(mau[latI])} MAU, EU remains the smallest geography by a significant margin</strong> — current unit economics and conversion efficiency clearly justify accelerated investment. The whitespace relative to NAMR (~3.4M) and India (~7.8M) represents a substantial medium-term revenue opportunity.` });
     b.push({ cls: 'warn', icon: '◈',
       text: `<strong>Paid/Overall Playtime at ${pct(paidOvPT[latI])} trails NAMR's ~56%</strong> — as the paying base matures and premium content adoption deepens, there is meaningful monetisation upside to close this gap and drive incremental revenue per engaged session over the next 12–18 months.` });
+    b.push(retBullet(`EU's cohort retention is above the platform average at M1 and improving — early evidence that high-growth cohorts are sticking. Sustaining M3 and M6 retention as the cohort matures will determine whether EU reaches NAMR-level revenue compounding over the next 18 months.`));
     return keyInsightsBlock(b, 'EU');
   }
 
@@ -698,6 +729,7 @@ function buildTabKeyInsights(tabId, M, latI) {
       text: `<strong>Total playtime declined only ${sgn(ptYoY)} despite a ${sgn(mauYoY)} MAU contraction</strong> — the retained cohort is engaging significantly more per session. This base, if stabilised through targeted investment, represents a high-value, high-engagement monetisable core with strong ARPU potential.` });
     b.push({ cls: 'pos', icon: '◉',
       text: `<strong>Paying DAU/Paying MAU reached ${pct(payDauPct[latI])}</strong>, among the highest ratios globally — users who have remained exhibit strong daily habits and premium content engagement, suggesting the subscription revenue floor is structurally defensible even through the current downcycle.` });
+    b.push(retBullet(`India shows the steepest M1 drop-off of any geography — early cohort attrition is compounding the MAU contraction on revenue. Improving M1 retention is the highest-leverage intervention available to stabilise India's revenue trajectory without a step-change in new user acquisition spending.`));
     return keyInsightsBlock(b, 'India');
   }
 
@@ -717,6 +749,7 @@ function buildTabKeyInsights(tabId, M, latI) {
       text: `<strong>DAU/MAU at ${pct(dauMauR[latI])} is the lowest across all geographies</strong> (vs NAMR ~29.5%, EU ~26.4%) — improving daily return frequency is the most reliable near-term lever to strengthen the conversion funnel and accelerate the path to monetisation parity.` });
     b.push({ cls: 'warn', icon: '◈',
       text: `<strong>Paid/Overall Playtime at ${pct(paidOvPT[latI])} is less than half of NAMR's rate (~56%)</strong> — premium content adoption remains nascent. Pricing localisation, regional content investment, and a structured freemium-to-paid strategy could materially compress the timeline to monetisation maturity.` });
+    b.push(retBullet(`LATAM shows strong M1 retention for an early-stage market — early paying cohorts are exhibiting habitual behaviour. Sustaining M3 and M6 durability as scale grows is the key proof point for the long-term LATAM monetisation thesis and justifies continued investment acceleration.`));
     return keyInsightsBlock(b, 'LATAM');
   }
 
@@ -770,6 +803,13 @@ function render(rows, tab, geoData=[]) {
   const paidPT     = g('Paid Playtime (Mins)');
   const ptLdau     = g('Playtime/LDAU (Mins)');
   const paidOvPT   = g('Paid/Overall Playtime');
+
+  // ── Cohort retention metric getters ─────────────────────────────────────
+  const retM0 = g('M0');
+  const retM1 = g('M1');
+  const retM3 = g('M3');
+  const retM6 = g('M6');
+  const latNonNull = arr => arr.reduce((a,v)=>v!=null?v:a, null);
 
   // ── UGC metric getters ───────────────────────────────────────────────────
   const ugcRev     = g('Total Revenue ($)');
@@ -825,7 +865,7 @@ function render(rows, tab, geoData=[]) {
 
   // ── Section analysis (Overall tab only) ─────────────────────────────────
   const analysis = (tab.id==='overall' && geoData.length)
-    ? buildAnalysis(geoData, mau[latI], latMon)
+    ? buildAnalysis(geoData, mau[latI], latMon, latNonNull(retM1), latNonNull(retM3))
     : { users:'', acquisition:'', playtime:'' };
 
   // ── UGC Analysis (Overall tab only) ──────────────────────────────────────
@@ -868,6 +908,7 @@ function render(rows, tab, geoData=[]) {
     <div class="chart-card"><div class="chart-title">Marketing Cost<small>USD + MoM growth %</small></div><div class="ch"><canvas id="c-mkt"></canvas></div></div>
     <div class="chart-card"><div class="chart-title">Transactions &amp; NPU<small>monthly</small></div><div class="ch"><canvas id="c-txn"></canvas></div></div>
     <div class="chart-card"><div class="chart-title">Paying Users (Cumulative)<small>unique payers</small></div><div class="ch"><canvas id="c-pu"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Active Paying User Retention<small>M0 · M1 · M3 · M6 cohort %</small></div><div class="ch"><canvas id="c-retention"></canvas></div></div>
   </div>
 
   <div style="font-size:.68rem;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:#ffa94d;margin:26px 0 13px;display:flex;align-items:center;gap:10px;">
@@ -996,6 +1037,13 @@ function render(rows, tab, geoData=[]) {
   mkChart('c-pu','line',SL,[
     {label:'Paying Users (Cumulative)',data:payUsersC,borderColor:'#f9e2af',backgroundColor:'rgba(249,226,175,.1)',fill:true,tension:.3,pointRadius:3}
   ]);
+
+  mkChart('c-retention','line',SL,[
+    {label:'M0',data:retM0,borderColor:'#00d4aa',pointRadius:retM0.map(v=>v!=null?5:0),pointBackgroundColor:'#00d4aa',pointBorderColor:'#12122a',pointBorderWidth:1.5,tension:.38,spanGaps:false,borderWidth:2.5},
+    {label:'M1',data:retM1,borderColor:'#4d9fff',borderDash:[6,3],pointRadius:retM1.map(v=>v!=null?4:0),pointBackgroundColor:'#4d9fff',pointBorderColor:'#12122a',pointBorderWidth:1.5,tension:.38,spanGaps:false,borderWidth:2},
+    {label:'M3',data:retM3,borderColor:'#ffa94d',borderDash:[4,4],pointRadius:retM3.map(v=>v!=null?4:0),pointBackgroundColor:'#ffa94d',pointBorderColor:'#12122a',pointBorderWidth:1.5,tension:.38,spanGaps:false,borderWidth:2},
+    {label:'M6',data:retM6,borderColor:'#ff6b9d',borderDash:[2,4],pointRadius:retM6.map(v=>v!=null?4:0),pointBackgroundColor:'#ff6b9d',pointBorderColor:'#12122a',pointBorderWidth:1.5,tension:.38,spanGaps:false,borderWidth:2},
+  ],{yFmt:v=>v!=null?v.toFixed(1)+'%':'', y:{min:20,max:100}});
 
   mkChart('c-bb-1mn','line',bbSL,[
     {label:'English', data:bbEn1mn.slice(0,bbLatI+1),borderColor:'#6c63ff',backgroundColor:'rgba(108,99,255,.08)',fill:true,tension:.3,pointRadius:4,borderWidth:2},
