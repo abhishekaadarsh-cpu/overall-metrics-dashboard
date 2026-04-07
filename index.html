@@ -693,6 +693,29 @@ function render(rows, tab, geoData=[]) {
   const ptLdau     = g('Playtime/LDAU (Mins)');
   const paidOvPT   = g('Paid/Overall Playtime');
 
+  // ── UGC metric getters ───────────────────────────────────────────────────
+  const ugcRev     = g('Total Revenue ($)');
+  const ugcArr     = g('ARR ($)');
+  const ugcPctTot  = g('UGC Contribution to Total Revenue');
+  const ugcPctNA   = g('UGC Contribution to North America Revenue');
+  const ugcPctInd  = g('UGC Contribution to India Revenue');
+  const ugcPlayHrs = g('Playtime (Million Hrs) - Overall');
+  const ugcListAll = g('# Listeners (>=30 sec) - Overall');
+  const ugcListUS  = g('# Listeners (>=30 sec) - US');
+  const ugcAvgIPs  = g('# Avg. UGC IPs explored per listener');
+  const ugcPubWrt  = g('# of Published writers');
+  const ugcConWrt  = g('# of Contracted writers');
+  const ugcUSIPs   = g('# of  US IPs Published');
+  const ugcIndIPs  = g('# of  India IPs Published');
+  const ugcShow100 = g('Shows with Lifetime Revenue> USD 100K');
+  const ugcShow500 = g('Shows with Lifetime Revenue> USD 500K');
+  const ugcEarnUS  = g('Avg monthly earning of top 10% of eligible writers ($) - US');
+  const ugcEarnInd = g('Avg monthly earning of top 10% of eligible writers (INR) - India');
+  // UGC data ends at Feb 2026 — find last valid data index
+  const ugcLatI  = ugcRev.reduce((a,v,i)=>v!=null?i:a, 0);
+  const ugcPrevI = ugcLatI>0?ugcLatI-1:0;
+  const ugcSL    = SL.slice(0, ugcLatI+1);
+
   // ── KPI card builder ─────────────────────────────────────────────────────
   const kpi = (label,val,chg,unit='',color='#6c63ff',sub='') =>
     `<div class="kpi" style="--kc:${color}">
@@ -766,6 +789,48 @@ function render(rows, tab, geoData=[]) {
   </div>
   ${analysis.playtime}
 
+  ${tab.id==='overall' ? `
+  <div class="sec-label">UGC Metrics</div>
+
+  <div class="kpi-grid">
+    ${kpi('Total Revenue',           fmtCur(ugcRev[ugcLatI]),     delta(ugcRev,ugcLatI),                    '%',  '#f38ba8', months[ugcLatI]||latMon)}
+    ${kpi('ARR',                     fmtCur(ugcArr[ugcLatI]),     delta(ugcArr,ugcLatI),                    '%',  '#cba6f7', months[ugcLatI]||latMon)}
+    ${kpi('UGC % of Total Revenue',  fmtPct(ugcPctTot[ugcLatI]), pp(ugcPctTot[ugcLatI],ugcPctTot[ugcPrevI]),'pp', '#a6e3a1', months[ugcLatI]||latMon)}
+    ${kpi('UGC % NA Revenue',        fmtPct(ugcPctNA[ugcLatI]),  pp(ugcPctNA[ugcLatI],ugcPctNA[ugcPrevI]),  'pp', '#89dceb', months[ugcLatI]||latMon)}
+    ${kpi('UGC % India Revenue',     fmtPct(ugcPctInd[ugcLatI]), pp(ugcPctInd[ugcLatI],ugcPctInd[ugcPrevI]),'pp', '#fab387', months[ugcLatI]||latMon)}
+    ${kpi('Listeners (≥30s)',        fmtBig(ugcListAll[ugcLatI]),delta(ugcListAll,ugcLatI),                 '%',  '#74c7ec', months[ugcLatI]||latMon)}
+  </div>
+  <div class="charts-2" style="margin-top:16px">
+    <div class="chart-card"><div class="chart-title">Total Revenue &amp; ARR<small>USD · monthly</small></div><div class="ch"><canvas id="c-ugc-rev"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">UGC Contribution %<small>Total Revenue · NA · India</small></div><div class="ch"><canvas id="c-ugc-pct"></canvas></div></div>
+  </div>
+
+  <div class="kpi-grid" style="margin-top:18px">
+    ${kpi('Playtime (M hrs)',         fmtBig(ugcPlayHrs[ugcLatI]),delta(ugcPlayHrs,ugcLatI),                '%',  '#6c63ff', months[ugcLatI]||latMon)}
+    ${kpi('Listeners (≥30s) US',     fmtBig(ugcListUS[ugcLatI]), delta(ugcListUS,ugcLatI),                 '%',  '#f9e2af', months[ugcLatI]||latMon)}
+    ${kpi('Avg IPs / Listener',       fmtBig(ugcAvgIPs[ugcLatI]),null,                                    '',   '#94e2d5', months[ugcLatI]||latMon)}
+    ${kpi('Published Writers',        fmtBig(ugcPubWrt[ugcLatI]),delta(ugcPubWrt,ugcLatI),                 '%',  '#00d4aa', months[ugcLatI]||latMon)}
+    ${kpi('Contracted Writers',       fmtBig(ugcConWrt[ugcLatI]),delta(ugcConWrt,ugcLatI),                 '%',  '#ffa94d', months[ugcLatI]||latMon)}
+    ${kpi('India IPs Published',      fmtBig(ugcIndIPs[ugcLatI]),delta(ugcIndIPs,ugcLatI),                 '%',  '#ff6b6b', months[ugcLatI]||latMon)}
+  </div>
+  <div class="charts-2" style="margin-top:16px">
+    <div class="chart-card"><div class="chart-title">Listeners (≥30s)<small>Overall vs US</small></div><div class="ch"><canvas id="c-ugc-list"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">IPs Published<small>US vs India cumulative</small></div><div class="ch"><canvas id="c-ugc-ips"></canvas></div></div>
+  </div>
+
+  <div class="kpi-grid" style="margin-top:18px">
+    ${kpi('US IPs Published',         fmtBig(ugcUSIPs[ugcLatI]),  delta(ugcUSIPs,ugcLatI),                '%',  '#cba6f7', months[ugcLatI]||latMon)}
+    ${kpi('Shows &gt;$100K Lifetime', fmtBig(ugcShow100[ugcLatI]),delta(ugcShow100,ugcLatI),              '%',  '#a6e3a1', months[ugcLatI]||latMon)}
+    ${kpi('Shows &gt;$500K Lifetime', fmtBig(ugcShow500[ugcLatI]),delta(ugcShow500,ugcLatI),              '%',  '#f38ba8', months[ugcLatI]||latMon)}
+    ${kpi('Top 10% Earnings (US)',     fmtCur(ugcEarnUS[ugcLatI]), delta(ugcEarnUS,ugcLatI),              '%',  '#f9e2af', 'monthly avg · top 10%')}
+    ${kpi('Top 10% Earnings (India)',  '₹'+fmtBig(ugcEarnInd[ugcLatI]),delta(ugcEarnInd,ugcLatI),        '%',  '#89dceb', 'INR monthly avg · top 10%')}
+  </div>
+  <div class="charts-2" style="margin-top:16px">
+    <div class="chart-card"><div class="chart-title">Content Milestones<small>shows by lifetime revenue threshold</small></div><div class="ch"><canvas id="c-ugc-content"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Top Writer Earnings<small>avg monthly · top 10% eligible writers</small></div><div class="ch"><canvas id="c-ugc-earn"></canvas></div></div>
+  </div>
+  ` : ''}
+
   ${tabInsights}
 
   <div class="sec-label">Full Data Table</div>
@@ -826,6 +891,40 @@ function render(rows, tab, geoData=[]) {
     {label:'Playtime/LDAU (min)',data:ptLdau,borderColor:'#eba0ac',backgroundColor:'rgba(235,160,172,.1)',fill:true,tension:.3,pointRadius:3}
   ],{yFmt:v=>v?.toFixed(1)});
 
+  // ── UGC Charts (Overall tab only) ────────────────────────────────────────
+  if (tab.id === 'overall') {
+    mkChart('c-ugc-rev','bar',ugcSL,[
+      {label:'Total Revenue',data:ugcRev.slice(0,ugcLatI+1),backgroundColor:'rgba(243,139,168,.55)',borderRadius:4,yAxisID:'y'},
+      {label:'ARR',data:ugcArr.slice(0,ugcLatI+1),type:'line',borderColor:'#cba6f7',tension:.3,pointRadius:3,borderWidth:2,yAxisID:'y2'}
+    ],{yFmt:v=>fmtCur(v),y2Fmt:v=>fmtCur(v),y2:{grid:{drawOnChartArea:false},ticks:{color:'#cba6f7',font:{size:9}}}});
+
+    mkChart('c-ugc-pct','line',ugcSL,[
+      {label:'% of Total Revenue',data:ugcPctTot.slice(0,ugcLatI+1),borderColor:'#a6e3a1',tension:.3,pointRadius:3,borderWidth:2},
+      {label:'% of NA Revenue',   data:ugcPctNA.slice(0,ugcLatI+1), borderColor:'#89dceb',tension:.3,pointRadius:3,borderWidth:2},
+      {label:'% of India Revenue',data:ugcPctInd.slice(0,ugcLatI+1),borderColor:'#fab387',tension:.3,pointRadius:3,borderWidth:2}
+    ],{yFmt:v=>v?.toFixed(1)+'%'});
+
+    mkChart('c-ugc-list','line',ugcSL,[
+      {label:'Listeners Overall',data:ugcListAll.slice(0,ugcLatI+1),borderColor:'#74c7ec',backgroundColor:'rgba(116,199,236,.1)',fill:true,tension:.3,pointRadius:3},
+      {label:'Listeners US',     data:ugcListUS.slice(0,ugcLatI+1), borderColor:'#f9e2af',tension:.3,pointRadius:3}
+    ]);
+
+    mkChart('c-ugc-ips','line',ugcSL,[
+      {label:'US IPs Published',    data:ugcUSIPs.slice(0,ugcLatI+1), borderColor:'#cba6f7',tension:.3,pointRadius:3,yAxisID:'y'},
+      {label:'India IPs Published', data:ugcIndIPs.slice(0,ugcLatI+1),borderColor:'#fab387',backgroundColor:'rgba(250,179,135,.08)',fill:true,tension:.3,pointRadius:3,yAxisID:'y2'}
+    ],{yFmt:v=>fmtBig(v),y2Fmt:v=>fmtBig(v),y2:{grid:{drawOnChartArea:false},ticks:{color:'#fab387',font:{size:9}}}});
+
+    mkChart('c-ugc-content','line',ugcSL,[
+      {label:'Shows >$100K',data:ugcShow100.slice(0,ugcLatI+1),borderColor:'#a6e3a1',tension:.3,pointRadius:4,borderWidth:2},
+      {label:'Shows >$500K',data:ugcShow500.slice(0,ugcLatI+1),borderColor:'#f38ba8',tension:.3,pointRadius:4,borderWidth:2}
+    ]);
+
+    mkChart('c-ugc-earn','bar',ugcSL,[
+      {label:'Top 10% — US ($)',     data:ugcEarnUS.slice(0,ugcLatI+1), backgroundColor:'rgba(249,226,175,.6)',borderRadius:4,yAxisID:'y'},
+      {label:'Top 10% — India (₹)', data:ugcEarnInd.slice(0,ugcLatI+1),backgroundColor:'rgba(137,220,235,.5)',borderRadius:4,yAxisID:'y2'}
+    ],{yFmt:v=>fmtCur(v),y2Fmt:v=>'₹'+fmtBig(v),y2:{grid:{drawOnChartArea:false},ticks:{color:'#89dceb',font:{size:9}}}});
+  }
+
   // ── Data table ────────────────────────────────────────────────────────────
   const groups = [
     { name:'Users & Growth', rows:[
@@ -845,6 +944,31 @@ function render(rows, tab, geoData=[]) {
       {k:'Total Playtime (Mins)',fmt:'min'},{k:'Paid Playtime (Mins)',fmt:'min'},
       {k:'Playtime/LDAU (Mins)',fmt:'dec'},{k:'Paid/Overall Playtime',fmt:'pct'},
     ]},
+    ...(tab.id==='overall' ? [
+    { name:'UGC — Revenue', rows:[
+      {k:'Total Revenue ($)',label:'Total Revenue',fmt:'cur'},
+      {k:'ARR ($)',label:'ARR',fmt:'cur'},
+      {k:'UGC Contribution to Total Revenue',label:'UGC % of Total Revenue',fmt:'pct'},
+      {k:'UGC Contribution to North America Revenue',label:'UGC % NA Revenue',fmt:'pct'},
+      {k:'UGC Contribution to India Revenue',label:'UGC % India Revenue',fmt:'pct'},
+    ]},
+    { name:'UGC — Engagement', rows:[
+      {k:'Playtime (Million Hrs) - Overall',label:'Playtime (M hrs)',fmt:'big'},
+      {k:'# Listeners (>=30 sec) - Overall',label:'Listeners ≥30s (Overall)',fmt:'big'},
+      {k:'# Listeners (>=30 sec) - US',label:'Listeners ≥30s (US)',fmt:'big'},
+      {k:'# Avg. UGC IPs explored per listener',label:'Avg IPs per Listener',fmt:'big'},
+    ]},
+    { name:'UGC — Writers & Content', rows:[
+      {k:'# of Published writers',label:'Published Writers',fmt:'big'},
+      {k:'# of Contracted writers',label:'Contracted Writers',fmt:'big'},
+      {k:'# of  US IPs Published',label:'US IPs Published',fmt:'big'},
+      {k:'# of  India IPs Published',label:'India IPs Published',fmt:'big'},
+      {k:'Shows with Lifetime Revenue> USD 100K',label:'Shows >$100K Lifetime',fmt:'big'},
+      {k:'Shows with Lifetime Revenue> USD 500K',label:'Shows >$500K Lifetime',fmt:'big'},
+      {k:'Avg monthly earning of top 10% of eligible writers ($) - US',label:'Top 10% Earnings US ($)',fmt:'cur'},
+      {k:'Avg monthly earning of top 10% of eligible writers (INR) - India',label:'Top 10% Earnings India (₹)',fmt:'big'},
+    ]},
+    ] : []),
   ];
 
   const thead=`<thead><tr><th>Metric</th>${months.map(m=>`<th>${m.replace('2025',"'25").replace('2026',"'26")}</th>`).join('')}</tr></thead>`;
