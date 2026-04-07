@@ -83,34 +83,6 @@
   tr:not(.group-row):hover td{background:rgba(108,99,255,.06);}
   .hi{color:var(--text)!important;font-weight:800;}
 
-  /* ── Password gate ── */
-  #gate{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;}
-  .gate-box{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:40px 44px;width:100%;max-width:380px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.5);}
-  .gate-logo{font-size:1.35rem;font-weight:900;margin-bottom:6px;}
-  .gate-logo span{color:var(--accent);}
-  .gate-sub{font-size:.75rem;color:var(--muted);margin-bottom:28px;}
-  .gate-lock{font-size:2rem;margin-bottom:18px;}
-  .gate-label{font-size:.68rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);text-align:left;margin-bottom:7px;}
-  .gate-wrap{position:relative;margin-bottom:8px;}
-  #gate-input{
-    width:100%;padding:12px 44px 12px 14px;
-    background:var(--surface2);border:1px solid var(--border);border-radius:10px;
-    color:var(--text);font-size:.93rem;outline:none;transition:border-color .2s;
-  }
-  #gate-input:focus{border-color:var(--accent);}
-  #gate-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:.85rem;padding:2px 4px;}
-  #gate-toggle:hover{color:var(--text);}
-  #gate-err{font-size:.72rem;color:var(--accent3);min-height:18px;margin-bottom:10px;text-align:left;}
-  #gate-btn{
-    width:100%;padding:12px;background:var(--accent);border:none;border-radius:10px;
-    color:#fff;font-size:.9rem;font-weight:800;cursor:pointer;transition:opacity .15s,transform .1s;
-  }
-  #gate-btn:hover{opacity:.88;}
-  #gate-btn:active{transform:scale(.97);}
-  #gate-btn:disabled{opacity:.45;cursor:not-allowed;}
-  @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
-  .shake{animation:shake .35s ease;}
-
   /* ── Loading ── */
   #loading{display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:14px;}
   .spin{width:38px;height:38px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .75s linear infinite;}
@@ -134,21 +106,6 @@
 </head>
 <body>
 
-<!-- Password Gate -->
-<div id="gate">
-  <div class="gate-box">
-    <div class="gate-lock">🔒</div>
-    <div class="gate-logo">CFO <span>Datapack</span></div>
-    <div class="gate-sub">This dashboard is restricted. Enter your password to continue.</div>
-    <div class="gate-label">Password</div>
-    <div class="gate-wrap">
-      <input id="gate-input" type="password" placeholder="Enter password" autocomplete="current-password" />
-      <button id="gate-toggle" type="button" title="Show/hide">👁</button>
-    </div>
-    <div id="gate-err"></div>
-    <button id="gate-btn">Unlock Dashboard</button>
-  </div>
-</div>
 
 <header>
   <div class="header-top">
@@ -167,64 +124,6 @@
 </main>
 
 <script>
-// ── Password Gate ─────────────────────────────────────────────────────────────
-(function(){
-  const HASH = 'dc6a2d4343ccb3738ea0501f311a9c0dfcf3bfbaec1397851588152a472586c6';
-  const SESSION_KEY = '_cfo_auth';
-
-  async function sha256(str){
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-  }
-
-  function unlock(){
-    document.getElementById('gate').style.display = 'none';
-    sessionStorage.setItem(SESSION_KEY,'1');
-  }
-
-  // Already authenticated this session
-  if(sessionStorage.getItem(SESSION_KEY)==='1'){ unlock(); return; }
-
-  const btn    = document.getElementById('gate-btn');
-  const input  = document.getElementById('gate-input');
-  const err    = document.getElementById('gate-err');
-  const toggle = document.getElementById('gate-toggle');
-
-  // Show / hide password toggle
-  toggle.addEventListener('click',()=>{
-    input.type = input.type==='password' ? 'text' : 'password';
-    toggle.textContent = input.type==='password' ? '👁' : '🙈';
-  });
-
-  // Submit on Enter
-  input.addEventListener('keydown', e=>{ if(e.key==='Enter') btn.click(); });
-
-  btn.addEventListener('click', async()=>{
-    const val = input.value;
-    if(!val){ err.textContent='Please enter a password.'; return; }
-    btn.disabled = true;
-    btn.textContent = 'Checking…';
-    const h = await sha256(val);
-    if(h === HASH){
-      err.textContent='';
-      unlock();
-    } else {
-      err.textContent='Incorrect password. Please try again.';
-      const box = document.querySelector('.gate-box');
-      box.classList.remove('shake');
-      void box.offsetWidth; // reflow to restart animation
-      box.classList.add('shake');
-      input.value='';
-      input.focus();
-    }
-    btn.disabled = false;
-    btn.textContent = 'Unlock Dashboard';
-  });
-
-  // Focus input on load
-  window.addEventListener('load',()=>input.focus());
-})();
-
 // ── Tab configuration ─────────────────────────────────────────────────────────
 const SHEET_ID   = '1vn7lZbtU-T4v09N0veR_VLKTtSOUFlQT_K_0yF9J3Es';
 const RANGE_START = 'April 2025';
