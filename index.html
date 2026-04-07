@@ -794,6 +794,26 @@ function render(rows, tab, geoData=[]) {
   const ugcPrevI = ugcLatI>0?ugcLatI-1:0;
   const ugcSL    = SL.slice(0, ugcLatI+1);
 
+  // ── Blockbuster Metrics — row-scan (duplicate labels across languages) ────
+  // Keys are identical per language so M-map can't hold them — scan rows directly
+  { const BB_LANGS = {English:'en', German:'de', 'India (All Languages)':'in'};
+    let bbLang=null, inBB=false;
+    for (const row of rows.slice(2)) {
+      const label = row[1]; if(!label) continue;
+      if (label==='Blockbuster Metrics') { inBB=true; continue; }
+      if (!inBB) continue;
+      if (BB_LANGS[label]!==undefined) { bbLang=BB_LANGS[label]; continue; }
+      if (bbLang && label.includes('$1Mn'))  M[`bb_${bbLang}_1mn`]  = idxs.map(i=>n(row[2+i]));
+      if (bbLang && label.includes('$500K')) M[`bb_${bbLang}_500k`] = idxs.map(i=>n(row[2+i]));
+    }
+  }
+  const bbEn1mn=g('bb_en_1mn'), bbEn500=g('bb_en_500k');
+  const bbDe1mn=g('bb_de_1mn'), bbDe500=g('bb_de_500k');
+  const bbIn1mn=g('bb_in_1mn'), bbIn500=g('bb_in_500k');
+  const bbLatI  = bbEn1mn.reduce((a,v,i)=>v!=null?i:a, 0);
+  const bbPrevI = bbLatI>0?bbLatI-1:0;
+  const bbSL    = SL.slice(0, bbLatI+1);
+
   // ── KPI card builder ─────────────────────────────────────────────────────
   const kpi = (label,val,chg,unit='',color='#6c63ff',sub='') =>
     `<div class="kpi" style="--kc:${color}">
@@ -848,6 +868,24 @@ function render(rows, tab, geoData=[]) {
     <div class="chart-card"><div class="chart-title">Marketing Cost<small>USD + MoM growth %</small></div><div class="ch"><canvas id="c-mkt"></canvas></div></div>
     <div class="chart-card"><div class="chart-title">Transactions &amp; NPU<small>monthly</small></div><div class="ch"><canvas id="c-txn"></canvas></div></div>
     <div class="chart-card"><div class="chart-title">Paying Users (Cumulative)<small>unique payers</small></div><div class="ch"><canvas id="c-pu"></canvas></div></div>
+  </div>
+
+  <div style="font-size:.68rem;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:#ffa94d;margin:26px 0 13px;display:flex;align-items:center;gap:10px;">
+    Blockbuster Metrics <span style="font-weight:400;letter-spacing:.4px;text-transform:none;color:var(--muted);font-size:.67rem">· shows by lifetime revenue threshold</span>
+    <span style="flex:1;height:1px;background:rgba(255,169,77,.25);margin-left:4px;"></span>
+  </div>
+
+  <div class="kpi-grid">
+    ${kpi('English · >$1Mn',   fmtBig(bbEn1mn[bbLatI]), pp(bbEn1mn[bbLatI],bbEn1mn[bbPrevI]), '', '#6c63ff', months[bbLatI]||latMon)}
+    ${kpi('English · >$500K',  fmtBig(bbEn500[bbLatI]), pp(bbEn500[bbLatI],bbEn500[bbPrevI]), '', '#a09fff', months[bbLatI]||latMon)}
+    ${kpi('German · >$1Mn',    fmtBig(bbDe1mn[bbLatI]), pp(bbDe1mn[bbLatI],bbDe1mn[bbPrevI]), '', '#ffa94d', months[bbLatI]||latMon)}
+    ${kpi('German · >$500K',   fmtBig(bbDe500[bbLatI]), pp(bbDe500[bbLatI],bbDe500[bbPrevI]), '', '#f5c57e', months[bbLatI]||latMon)}
+    ${kpi('India · >$1Mn',     fmtBig(bbIn1mn[bbLatI]), pp(bbIn1mn[bbLatI],bbIn1mn[bbPrevI]), '', '#ff6b6b', months[bbLatI]||latMon)}
+    ${kpi('India · >$500K',    fmtBig(bbIn500[bbLatI]), pp(bbIn500[bbLatI],bbIn500[bbPrevI]), '', '#ffb3b3', months[bbLatI]||latMon)}
+  </div>
+  <div class="charts-2" style="margin-top:16px">
+    <div class="chart-card"><div class="chart-title">Shows with Lifetime Revenue &gt; $1Mn<small>English · German · India</small></div><div class="ch"><canvas id="c-bb-1mn"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Shows with Lifetime Revenue &gt; $500K<small>English · German · India</small></div><div class="ch"><canvas id="c-bb-500k"></canvas></div></div>
   </div>
   ${analysis.acquisition}
 
@@ -959,6 +997,18 @@ function render(rows, tab, geoData=[]) {
     {label:'Paying Users (Cumulative)',data:payUsersC,borderColor:'#f9e2af',backgroundColor:'rgba(249,226,175,.1)',fill:true,tension:.3,pointRadius:3}
   ]);
 
+  mkChart('c-bb-1mn','line',bbSL,[
+    {label:'English', data:bbEn1mn.slice(0,bbLatI+1),borderColor:'#6c63ff',backgroundColor:'rgba(108,99,255,.08)',fill:true,tension:.3,pointRadius:4,borderWidth:2},
+    {label:'German',  data:bbDe1mn.slice(0,bbLatI+1),borderColor:'#ffa94d',tension:.3,pointRadius:4,borderWidth:2},
+    {label:'India',   data:bbIn1mn.slice(0,bbLatI+1),borderColor:'#ff6b6b',tension:.3,pointRadius:4,borderWidth:2}
+  ]);
+
+  mkChart('c-bb-500k','line',bbSL,[
+    {label:'English', data:bbEn500.slice(0,bbLatI+1),borderColor:'#6c63ff',backgroundColor:'rgba(108,99,255,.08)',fill:true,tension:.3,pointRadius:4,borderWidth:2},
+    {label:'German',  data:bbDe500.slice(0,bbLatI+1),borderColor:'#ffa94d',tension:.3,pointRadius:4,borderWidth:2},
+    {label:'India',   data:bbIn500.slice(0,bbLatI+1),borderColor:'#ff6b6b',tension:.3,pointRadius:4,borderWidth:2}
+  ]);
+
   mkChart('c-ldau','line',SL,[
     {label:'Daily LDAU',data:dailyLdau,borderColor:'#6c63ff',backgroundColor:'rgba(108,99,255,.1)',fill:true,tension:.3,pointRadius:3},
     {label:'Daily Paying LDAU',data:dailyPLdau,borderColor:'#00d4aa',backgroundColor:'rgba(0,212,170,.08)',fill:true,tension:.3,pointRadius:3}
@@ -1019,6 +1069,14 @@ function render(rows, tab, geoData=[]) {
       {k:'Transactions',fmt:'big'},{k:'Transactions Growth',fmt:'pct'},
       {k:'NPU',fmt:'big'},{k:'NPU Growth',fmt:'pct'},
       {k:'Marketing Cost ($',label:'Marketing Cost',fmt:'cur'},{k:'Marketing Cost Growth',fmt:'pct'},
+    ]},
+    { name:'Blockbuster Metrics', rows:[
+      {k:'bb_en_1mn', label:'English — Shows >$1Mn',  fmt:'big'},
+      {k:'bb_en_500k',label:'English — Shows >$500K', fmt:'big'},
+      {k:'bb_de_1mn', label:'German — Shows >$1Mn',   fmt:'big'},
+      {k:'bb_de_500k',label:'German — Shows >$500K',  fmt:'big'},
+      {k:'bb_in_1mn', label:'India — Shows >$1Mn',    fmt:'big'},
+      {k:'bb_in_500k',label:'India — Shows >$500K',   fmt:'big'},
     ]},
     { name:'Playtime', rows:[
       {k:'Daily LDAU',fmt:'big'},{k:'Daily Paying LDAU',fmt:'big'},{k:'Paid LDAU %',fmt:'pct'},
