@@ -762,6 +762,25 @@ function render(rows, tab, geoData=[]) {
       <div class="kpi-sub">${sub||latMon}</div>
     </div>`;
 
+  // ── Blockbuster section HTML (Overall tab only) ─────────────────────────
+  const bbSection = tab.id !== 'overall' ? '' :
+    `<div style="font-size:.68rem;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:#ffa94d;margin:26px 0 13px;display:flex;align-items:center;gap:10px;">
+      Blockbuster Metrics <span style="font-weight:400;letter-spacing:.4px;text-transform:none;color:var(--muted);font-size:.67rem">· shows by lifetime revenue threshold</span>
+      <span style="flex:1;height:1px;background:rgba(255,169,77,.25);margin-left:4px;"></span>
+    </div>
+    <div class="kpi-grid">
+      ${kpi('English · >$1Mn',   fmtBig(bbEn1mn[bbLatI]), pp(bbEn1mn[bbLatI],bbEn1mn[bbPrevI]), '', '#6c63ff', months[bbLatI]||latMon)}
+      ${kpi('English · >$500K',  fmtBig(bbEn500[bbLatI]), pp(bbEn500[bbLatI],bbEn500[bbPrevI]), '', '#a09fff', months[bbLatI]||latMon)}
+      ${kpi('German · >$1Mn',    fmtBig(bbDe1mn[bbLatI]), pp(bbDe1mn[bbLatI],bbDe1mn[bbPrevI]), '', '#ffa94d', months[bbLatI]||latMon)}
+      ${kpi('German · >$500K',   fmtBig(bbDe500[bbLatI]), pp(bbDe500[bbLatI],bbDe500[bbPrevI]), '', '#f5c57e', months[bbLatI]||latMon)}
+      ${kpi('India · >$1Mn',     fmtBig(bbIn1mn[bbLatI]), pp(bbIn1mn[bbLatI],bbIn1mn[bbPrevI]), '', '#ff6b6b', months[bbLatI]||latMon)}
+      ${kpi('India · >$500K',    fmtBig(bbIn500[bbLatI]), pp(bbIn500[bbLatI],bbIn500[bbPrevI]), '', '#ffb3b3', months[bbLatI]||latMon)}
+    </div>
+    <div class="charts-2" style="margin-top:16px">
+      <div class="chart-card"><div class="chart-title">Shows with Lifetime Revenue &gt; $1Mn<small>English · German · India</small></div><div class="ch"><canvas id="c-bb-1mn"></canvas></div></div>
+      <div class="chart-card"><div class="chart-title">Shows with Lifetime Revenue &gt; $500K<small>English · German · India</small></div><div class="ch"><canvas id="c-bb-500k"></canvas></div></div>
+    </div>`;
+
   // ── Section analysis (Overall tab only) ─────────────────────────────────
   const analysis = (tab.id==='overall' && geoData.length)
     ? buildAnalysis(geoData, mau[latI], latMon, latNonNull(retM1), latNonNull(retM3))
@@ -810,24 +829,7 @@ function render(rows, tab, geoData=[]) {
     <div class="chart-card"><div class="chart-title">Active Paying User Retention<small>M0 · M1 · M3 · M6 cohort %</small></div><div class="ch"><canvas id="c-retention"></canvas></div></div>
   </div>
 
-  ${tab.id==='overall' ? `
-  <div style="font-size:.68rem;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:#ffa94d;margin:26px 0 13px;display:flex;align-items:center;gap:10px;">
-    Blockbuster Metrics <span style="font-weight:400;letter-spacing:.4px;text-transform:none;color:var(--muted);font-size:.67rem">· shows by lifetime revenue threshold</span>
-    <span style="flex:1;height:1px;background:rgba(255,169,77,.25);margin-left:4px;"></span>
-  </div>
-
-  <div class="kpi-grid">
-    ${kpi('English · >$1Mn',   fmtBig(bbEn1mn[bbLatI]), pp(bbEn1mn[bbLatI],bbEn1mn[bbPrevI]), '', '#6c63ff', months[bbLatI]||latMon)}
-    ${kpi('English · >$500K',  fmtBig(bbEn500[bbLatI]), pp(bbEn500[bbLatI],bbEn500[bbPrevI]), '', '#a09fff', months[bbLatI]||latMon)}
-    ${kpi('German · >$1Mn',    fmtBig(bbDe1mn[bbLatI]), pp(bbDe1mn[bbLatI],bbDe1mn[bbPrevI]), '', '#ffa94d', months[bbLatI]||latMon)}
-    ${kpi('German · >$500K',   fmtBig(bbDe500[bbLatI]), pp(bbDe500[bbLatI],bbDe500[bbPrevI]), '', '#f5c57e', months[bbLatI]||latMon)}
-    ${kpi('India · >$1Mn',     fmtBig(bbIn1mn[bbLatI]), pp(bbIn1mn[bbLatI],bbIn1mn[bbPrevI]), '', '#ff6b6b', months[bbLatI]||latMon)}
-    ${kpi('India · >$500K',    fmtBig(bbIn500[bbLatI]), pp(bbIn500[bbLatI],bbIn500[bbPrevI]), '', '#ffb3b3', months[bbLatI]||latMon)}
-  </div>
-  <div class="charts-2" style="margin-top:16px">
-    <div class="chart-card"><div class="chart-title">Shows with Lifetime Revenue &gt; $1Mn<small>English · German · India</small></div><div class="ch"><canvas id="c-bb-1mn"></canvas></div></div>
-    <div class="chart-card"><div class="chart-title">Shows with Lifetime Revenue &gt; $500K<small>English · German · India</small></div><div class="ch"><canvas id="c-bb-500k"></canvas></div></div>
-  </div>` : ''}
+  ${bbSection}
   ${analysis.acquisition}
 
   <div class="sec-label">Playtime &amp; Engagement</div>
@@ -1020,14 +1022,14 @@ function render(rows, tab, geoData=[]) {
       {k:'NPU',fmt:'big'},{k:'NPU Growth',fmt:'pct'},
       {k:'Marketing Cost ($',label:'Marketing Cost',fmt:'cur'},{k:'Marketing Cost Growth',fmt:'pct'},
     ]},
-    { name:'Blockbuster Metrics', rows:[
+    ...(tab.id==='overall' ? [{ name:'Blockbuster Metrics', rows:[
       {k:'bb_en_1mn', label:'English — Shows >$1Mn',  fmt:'big'},
       {k:'bb_en_500k',label:'English — Shows >$500K', fmt:'big'},
       {k:'bb_de_1mn', label:'German — Shows >$1Mn',   fmt:'big'},
       {k:'bb_de_500k',label:'German — Shows >$500K',  fmt:'big'},
       {k:'bb_in_1mn', label:'India — Shows >$1Mn',    fmt:'big'},
       {k:'bb_in_500k',label:'India — Shows >$500K',   fmt:'big'},
-    ]},
+    ]}] : []),
     { name:'Playtime', rows:[
       {k:'Daily LDAU',fmt:'big'},{k:'Daily Paying LDAU',fmt:'big'},{k:'Paid LDAU %',fmt:'pct'},
       {k:'Monthly LDAU',fmt:'big'},{k:'Monthly Paid LDAU',fmt:'big'},
