@@ -516,6 +516,66 @@ function buildAnalysis(geoData, overallMau, latMon) {
   };
 }
 
+// ── UGC Analysis block (Overall tab only) ────────────────────────────────────
+function buildUGCAnalysis(M, ugcLatI, ugcPrevI, months) {
+  const g         = k => M[k] || [];
+  const ugcRev    = g('Total Revenue ($)');
+  const ugcArr    = g('ARR ($)');
+  const ugcPctTot = g('UGC Contribution to Total Revenue');
+  const ugcPctNA  = g('UGC Contribution to North America Revenue');
+  const ugcPctInd = g('UGC Contribution to India Revenue');
+  const ugcListAll= g('# Listeners (>=30 sec) - Overall');
+  const ugcListUS = g('# Listeners (>=30 sec) - US');
+  const ugcPubWrt = g('# of Published writers');
+  const ugcUSIPs  = g('# of  US IPs Published');
+  const ugcIndIPs = g('# of  India IPs Published');
+  const ugcShow100= g('Shows with Lifetime Revenue> USD 100K');
+  const ugcShow500= g('Shows with Lifetime Revenue> USD 500K');
+  const ugcEarnUS = g('Avg monthly earning of top 10% of eligible writers ($) - US');
+
+  const yoy = arr => (arr[0]&&arr[ugcLatI]&&arr[0]!==0) ? ((arr[ugcLatI]-arr[0])/arr[0]*100) : null;
+  const sgn = (v,d=1) => v==null?'—':(v>0?'+':'')+v.toFixed(d)+'%';
+  const pct = (v,d=1) => v==null?'—':v.toFixed(d)+'%';
+  const period = `${months[ugcLatI]||'Latest'} · UGC breakdown`;
+  const ub = [];
+
+  // 1. Revenue compounding
+  const arrYoY = yoy(ugcArr), revYoY = yoy(ugcRev);
+  ub.push({ cls:'pos', icon:'▲',
+    text:`<strong>Revenue compounding at pace</strong> — Total Revenue grew <strong>${sgn(revYoY)}</strong> (${fmtCur(ugcRev[0])} → ${fmtCur(ugcRev[ugcLatI])}) with ARR reaching <strong>${fmtCur(ugcArr[ugcLatI])}</strong> (${sgn(arrYoY)} YoY). UGC is on a trajectory to become a structurally material revenue line within 12–18 months.`});
+
+  // 2. UGC revenue share expanding
+  const totPpDelta = ugcPctTot[ugcLatI]!=null&&ugcPctTot[0]!=null ? (ugcPctTot[ugcLatI]-ugcPctTot[0]).toFixed(2) : '—';
+  const indPpDelta = ugcPctInd[ugcLatI]!=null&&ugcPctInd[0]!=null ? (ugcPctInd[ugcLatI]-ugcPctInd[0]).toFixed(2) : '—';
+  ub.push({ cls:'pos', icon:'$',
+    text:`<strong>UGC share of platform revenue expanding steadily</strong> — contribution to total revenue grew <strong>${pct(ugcPctTot[0])} → ${pct(ugcPctTot[ugcLatI])}</strong> (+${totPpDelta}pp). India accelerated most sharply at <strong>${pct(ugcPctInd[0])} → ${pct(ugcPctInd[ugcLatI])}</strong> (+${indPpDelta}pp), signalling strong creator-consumer alignment in the most contested market.`});
+
+  // 3. Listener growth validates content
+  const listYoY = yoy(ugcListAll), listUSYoY = yoy(ugcListUS);
+  ub.push({ cls:listYoY>0?'pos':'neg', icon:'▲',
+    text:`<strong>Audience growing strongly</strong> — total listeners (≥30s) grew <strong>${sgn(listYoY)}</strong> (${fmtBig(ugcListAll[0])} → ${fmtBig(ugcListAll[ugcLatI])}); US listeners <strong>${sgn(listUSYoY)}</strong>. Growing audience validates content quality, strengthens the monetisation case, and underpins the re-investment argument for creator incentives.`});
+
+  // 4. Creator ecosystem scaling
+  const wrtYoY = yoy(ugcPubWrt), indIPYoY = yoy(ugcIndIPs), usIPYoY = yoy(ugcUSIPs);
+  ub.push({ cls:'pos', icon:'◈',
+    text:`<strong>Creator ecosystem scaling with supply</strong> — published writers grew <strong>${sgn(wrtYoY)}</strong> (${fmtBig(ugcPubWrt[0])} → ${fmtBig(ugcPubWrt[ugcLatI])}); India IPs <strong>${sgn(indIPYoY)}</strong>, US IPs <strong>${sgn(usIPYoY)}</strong>. Content supply is expanding in line with demand, reducing catalogue concentration risk and broadening the listener discovery surface.`});
+
+  // 5. Content monetisation milestones
+  const s100Delta = (ugcShow100[ugcLatI]||0)-(ugcShow100[0]||0);
+  const s500Delta = (ugcShow500[ugcLatI]||0)-(ugcShow500[0]||0);
+  ub.push({ cls:'pos', icon:'◉',
+    text:`<strong>Premium content tail deepening</strong> — shows crossing <strong>$100K lifetime revenue: ${ugcShow100[0]} → ${ugcShow100[ugcLatI]}</strong> (+${s100Delta}); <strong>$500K threshold: ${ugcShow500[0]} → ${ugcShow500[ugcLatI]}</strong> (+${s500Delta}). The elite earning tail is expanding, demonstrating a functioning creator monetisation flywheel and improving write income sustainability.`});
+
+  // 6. Top writer earnings signal
+  if (ugcEarnUS[ugcLatI]!=null) {
+    const earnYoY = yoy(ugcEarnUS);
+    ub.push({ cls:earnYoY>0?'pos':'warn', icon:'$',
+      text:`<strong>Top writer earnings improving materially</strong> — average monthly earnings of top 10% eligible US writers grew <strong>${sgn(earnYoY)}</strong> (${fmtCur(ugcEarnUS[0])} → ${fmtCur(ugcEarnUS[ugcLatI])}/month). Higher creator income drives supply quality, reduces churn of top contributors, and strengthens the platform's competitive position in content acquisition.`});
+  }
+
+  return analysisBlock(ub, period);
+}
+
 // ── Per-tab Key Insights (data-driven) ───────────────────────────────────────
 function buildTabKeyInsights(tabId, M, latI) {
   const g        = k => M[k] || [];
@@ -563,6 +623,24 @@ function buildTabKeyInsights(tabId, M, latI) {
       text: `<strong>Global transactions ${txnYoY<0?'declined':'grew'} ${sgn(txnYoY)} YoY</strong> (${fmtBig(txns[0])} → ${fmtBig(txns[latI])}) — NAMR (+58%) and LATAM (+167%) growth is absorbing India's contraction. The underlying geo mix is improving in quality, durability, and revenue diversification.` });
     b.push({ cls: 'pos', icon: '◈',
       text: `<strong>Paying DAU/Paying MAU improved ${pct(payDauPct[0])} → ${pct(payDauPct[latI])}</strong> — daily engagement within the monetised cohort is strengthening materially, a leading indicator of improved subscriber LTV, reduced churn risk, and compounding ARPU over the medium term.` });
+
+    // ── UGC bullets ───────────────────────────────────────────────────────
+    const ugcArrArr  = g('ARR ($)');
+    const ugcRevArr  = g('Total Revenue ($)');
+    const ugcPctT    = g('UGC Contribution to Total Revenue');
+    const ugcPctI    = g('UGC Contribution to India Revenue');
+    const ugcS100    = g('Shows with Lifetime Revenue> USD 100K');
+    const ugcS500    = g('Shows with Lifetime Revenue> USD 500K');
+    const ugcEUS     = g('Avg monthly earning of top 10% of eligible writers ($) - US');
+    const ugcLI      = ugcRevArr.reduce((a,v,i)=>v!=null?i:a, 0);
+    const ugcRevYoY  = (ugcRevArr[0]&&ugcRevArr[ugcLI]) ? ((ugcRevArr[ugcLI]-ugcRevArr[0])/ugcRevArr[0]*100) : null;
+    const ugcArrYoY  = (ugcArrArr[0]&&ugcArrArr[ugcLI]) ? ((ugcArrArr[ugcLI]-ugcArrArr[0])/ugcArrArr[0]*100) : null;
+    const ugcEarnYoY = (ugcEUS[0]&&ugcEUS[ugcLI]) ? ((ugcEUS[ugcLI]-ugcEUS[0])/ugcEUS[0]*100) : null;
+    b.push({ cls:'pos', icon:'$',
+      text:`<strong>UGC is becoming a material revenue stream</strong> — ARR reached <strong>${fmtCur(ugcArrArr[ugcLI])}</strong> (${ugcArrYoY!=null?(ugcArrYoY>0?'+':'')+ugcArrYoY.toFixed(1)+'%':'—'} YoY), with UGC contribution to total revenue expanding <strong>${pct(ugcPctT[0])} → ${pct(ugcPctT[ugcLI])}</strong>. India UGC share accelerated to <strong>${pct(ugcPctI[ugcLI])}</strong> — the fastest growing contribution of any geography.`});
+    b.push({ cls:'pos', icon:'◉',
+      text:`<strong>Content monetisation flywheel gaining momentum</strong> — shows crossing $500K lifetime revenue grew from <strong>${ugcS500[0]} → ${ugcS500[ugcLI]}</strong> and $100K threshold from <strong>${ugcS100[0]} → ${ugcS100[ugcLI]}</strong>. Top US writer earnings grew <strong>${ugcEarnYoY!=null?(ugcEarnYoY>0?'+':'')+ugcEarnYoY.toFixed(1)+'%':'—'}</strong> to ${fmtCur(ugcEUS[ugcLI])}/month — a healthy signal for creator retention and supply quality.`});
+
     return keyInsightsBlock(b, 'Overall');
   }
 
@@ -730,6 +808,9 @@ function render(rows, tab, geoData=[]) {
     ? buildAnalysis(geoData, mau[latI], latMon)
     : { users:'', acquisition:'', playtime:'' };
 
+  // ── UGC Analysis (Overall tab only) ──────────────────────────────────────
+  const ugcAnalysis = tab.id==='overall' ? buildUGCAnalysis(M, ugcLatI, ugcPrevI, months) : '';
+
   // ── Key Insights (all tabs) ───────────────────────────────────────────────
   const tabInsights = buildTabKeyInsights(tab.id, M, latI);
 
@@ -829,6 +910,7 @@ function render(rows, tab, geoData=[]) {
     <div class="chart-card"><div class="chart-title">Content Milestones<small>shows by lifetime revenue threshold</small></div><div class="ch"><canvas id="c-ugc-content"></canvas></div></div>
     <div class="chart-card"><div class="chart-title">Top Writer Earnings<small>avg monthly · top 10% eligible writers</small></div><div class="ch"><canvas id="c-ugc-earn"></canvas></div></div>
   </div>
+  ${ugcAnalysis}
   ` : ''}
 
   ${tabInsights}
