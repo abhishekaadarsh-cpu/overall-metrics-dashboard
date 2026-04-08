@@ -277,6 +277,18 @@ function extractGeoMetrics(rows) {
     let label=row[1]; if(!label) continue;
     M[KEY_ALIASES[label]||label] = idxs.map(i=>n(row[2+i]));
   }
+  // Row-scan retention: M0/M1/M3/M6 labels repeat in LTV/CAC section — capture only from retention section
+  { let inRet=false;
+    for(const row of rows.slice(2)){
+      const label=row[1]; if(!label) continue;
+      if(label==='Active Paying User Retention'){inRet=true;continue;}
+      if(!inRet) continue;
+      if(label==='M0'){M['ret_m0']=idxs.map(i=>n(row[2+i]));continue;}
+      if(label==='M1'){M['ret_m1']=idxs.map(i=>n(row[2+i]));continue;}
+      if(label==='M3'){M['ret_m3']=idxs.map(i=>n(row[2+i]));continue;}
+      if(label==='M6'){M['ret_m6']=idxs.map(i=>n(row[2+i]));inRet=false;continue;}
+    }
+  }
   const g=k=>M[k]||[];
   const mau=g('MAU'), dau=g('DAU'), dauMauR=g('DAU/MAU'),
         payMau=g('Paying MAU'), payMauPct=g('Paying MAU/MAU'),
@@ -284,7 +296,7 @@ function extractGeoMetrics(rows) {
         totalPT=g('Total Playtime (Mins)'), paidPT=g('Paid Playtime (Mins)'),
         ptLdau=g('Playtime/LDAU (Mins)'), paidOvPT=g('Paid/Overall Playtime'),
         dailyLdau=g('Daily LDAU'), paidLdauPct=g('Paid LDAU %');
-  const gRetM1=g('M1'), gRetM3=g('M3');
+  const gRetM1=g('ret_m1'), gRetM3=g('ret_m3');
   const latNonNull = arr => arr.reduce((a,v)=>v!=null?v:a, null);
   return {
     mauLat:mau[latI],         mauMoM:delta(mau,latI),
@@ -507,7 +519,7 @@ function buildTabKeyInsights(tabId, M, latI) {
   const pct = (v,d=1) => v==null?'—':v.toFixed(d)+'%';
 
   // ── Cohort retention ───────────────────────────────────────────────────────
-  const retM1arr = g('M1'), retM3arr = g('M3'), retM6arr = g('M6');
+  const retM1arr = g('ret_m1'), retM3arr = g('ret_m3'), retM6arr = g('ret_m6');
   const latNN = arr => arr.reduce((a,v)=>v!=null?v:a, null);
   const tabRetM1 = latNN(retM1arr);
   const tabRetM3 = latNN(retM3arr);
@@ -704,10 +716,10 @@ function render(rows, tab, geoData=[]) {
   const paidOvPT   = g('Paid/Overall Playtime');
 
   // ── Cohort retention metric getters ─────────────────────────────────────
-  const retM0 = g('M0');
-  const retM1 = g('M1');
-  const retM3 = g('M3');
-  const retM6 = g('M6');
+  const retM0 = g('ret_m0');
+  const retM1 = g('ret_m1');
+  const retM3 = g('ret_m3');
+  const retM6 = g('ret_m6');
   const latNonNull = arr => arr.reduce((a,v)=>v!=null?v:a, null);
 
   // ── UGC metric getters ───────────────────────────────────────────────────
@@ -744,6 +756,19 @@ function render(rows, tab, geoData=[]) {
       if (BB_LANGS[label]!==undefined) { bbLang=BB_LANGS[label]; continue; }
       if (bbLang && label.includes('$1Mn'))  M[`bb_${bbLang}_1mn`]  = idxs.map(i=>n(row[2+i]));
       if (bbLang && label.includes('$500K')) M[`bb_${bbLang}_500k`] = idxs.map(i=>n(row[2+i]));
+    }
+  }
+
+  // ── Active Paying User Retention — row-scan (M0/M1/M3/M6 labels repeat in LTV/CAC section) ──
+  { let inRet=false;
+    for (const row of rows.slice(2)) {
+      const label = row[1]; if(!label) continue;
+      if (label==='Active Paying User Retention') { inRet=true; continue; }
+      if (!inRet) continue;
+      if (label==='M0') { M['ret_m0']=idxs.map(i=>n(row[2+i])); continue; }
+      if (label==='M1') { M['ret_m1']=idxs.map(i=>n(row[2+i])); continue; }
+      if (label==='M3') { M['ret_m3']=idxs.map(i=>n(row[2+i])); continue; }
+      if (label==='M6') { M['ret_m6']=idxs.map(i=>n(row[2+i])); inRet=false; continue; }
     }
   }
   const bbEn1mn=g('bb_en_1mn'), bbEn500=g('bb_en_500k');
