@@ -287,6 +287,7 @@ function extractGeoMetrics(rows) {
       if(label==='Active Paying User Retention'){section='ret';continue;}
       if(label==='LTV/CAC'){section='ltv';continue;}
       if(label==='Revenue Retention M0'){section='rrev';continue;}
+      if(label==='Absolute Cumm Rev Data'){section=null;continue;}
       if(section==='ret'  && RET_KEYS[label]) {M[RET_KEYS[label]] =idxs.map(i=>n(row[2+i]));continue;}
       if(section==='ltv'  && LTV_KEYS[label]) {M[LTV_KEYS[label]] =idxs.map(i=>n(row[2+i]));continue;}
       if(section==='rrev' && RREV_KEYS[label]){M[RREV_KEYS[label]]=idxs.map(i=>n(row[2+i]));continue;}
@@ -767,6 +768,7 @@ function render(rows, tab, geoData=[]) {
       if (label==='Active Paying User Retention') { section='ret';  continue; }
       if (label==='LTV/CAC')                      { section='ltv';  continue; }
       if (label==='Revenue Retention M0')          { section='rrev'; continue; }
+      if (label==='Absolute Cumm Rev Data')        { section=null;   continue; }
       if (section==='ret'  && RET_KEYS[label])  { M[RET_KEYS[label]] =idxs.map(i=>n(row[2+i])); continue; }
       if (section==='ltv'  && LTV_KEYS[label])  { M[LTV_KEYS[label]] =idxs.map(i=>n(row[2+i])); continue; }
       if (section==='rrev' && RREV_KEYS[label]) { M[RREV_KEYS[label]]=idxs.map(i=>n(row[2+i])); continue; }
