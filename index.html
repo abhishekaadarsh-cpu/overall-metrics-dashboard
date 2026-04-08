@@ -998,7 +998,7 @@ function render(rows, tab, geoData=[]) {
     {label:'M12',data:rrevM12,borderColor:'#cba6f7',borderDash:[8,3],pointRadius:3,pointBackgroundColor:'#cba6f7',tension:.38,spanGaps:false,borderWidth:1.5},
     {label:'M24',data:rrevM24,borderColor:'#74c7ec',borderDash:[5,5],pointRadius:3,pointBackgroundColor:'#74c7ec',tension:.38,spanGaps:false,borderWidth:1.5},
     {label:'M36',data:rrevM36,borderColor:'#a6e3a1',borderDash:[3,3],pointRadius:3,pointBackgroundColor:'#a6e3a1',tension:.38,spanGaps:false,borderWidth:1.5},
-  ],{yFmt:v=>v!=null?fmtCur(v):''});
+  ],{yFmt:v=>v!=null?v.toFixed(1)+'%':''});
 
   if (tab.id === 'overall') {
     mkChart('c-bb-1mn','line',bbSL,[
