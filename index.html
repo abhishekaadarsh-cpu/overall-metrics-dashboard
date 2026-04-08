@@ -330,7 +330,9 @@ function extractGeoMetrics(rows) {
         totalPT=g('Total Playtime (Mins)'), paidPT=g('Paid Playtime (Mins)'),
         ptLdau=g('Playtime/LDAU (Mins)'), paidOvPT=g('Paid/Overall Playtime'),
         dailyLdau=g('Daily LDAU'), paidLdauPct=g('Paid LDAU %');
-  const gRetM1=g('ret_m1'), gRetM3=g('ret_m3');
+  const gRetM0=g('ret_m0'), gRetM1=g('ret_m1'), gRetM3=g('ret_m3'), gRetM6=g('ret_m6');
+  const gLtvM1=g('ltv_m1'), gLtvM3=g('ltv_m3'), gLtvM6=g('ltv_m6'), gLtvM12=g('ltv_m12');
+  const gRrevM1=g('rrev_m1'), gRrevM3=g('rrev_m3'), gRrevM6=g('rrev_m6');
   const latNonNull = arr => arr.reduce((a,v)=>v!=null?v:a, null);
   return {
     mauLat:mau[latI],         mauMoM:delta(mau,latI),
@@ -347,8 +349,12 @@ function extractGeoMetrics(rows) {
     paidOvPTLat:paidOvPT[latI],
     ldauLat:dailyLdau[latI],  ldauMoM:delta(dailyLdau,latI),
     paidLdauPct:paidLdauPct[latI],
-    retM1Lat: latNonNull(gRetM1),
-    retM3Lat: latNonNull(gRetM3),
+    retM0Lat: latNonNull(gRetM0), retM1Lat: latNonNull(gRetM1),
+    retM3Lat: latNonNull(gRetM3), retM6Lat: latNonNull(gRetM6),
+    ltvM1Lat:  latNonNull(gLtvM1),  ltvM3Lat:  latNonNull(gLtvM3),
+    ltvM6Lat:  latNonNull(gLtvM6),  ltvM12Lat: latNonNull(gLtvM12),
+    rrevM1Lat: latNonNull(gRrevM1), rrevM3Lat: latNonNull(gRrevM3),
+    rrevM6Lat: latNonNull(gRrevM6),
   };
 }
 
@@ -470,6 +476,78 @@ function buildAnalysis(geoData, overallMau, latMon, overallRetM1, overallRetM3) 
     acquisition: analysisBlock(ab, period),
     playtime:    analysisBlock(pb, period),
   };
+}
+
+// ── Cohort Analysis: Paying User Retention · LTV/CAC · Revenue Retention ─────
+function buildCohortAnalysis(geoData, latMon) {
+  if (!geoData.length) return '';
+  const geos  = geoData.map(g => ({ ...g, ...extractGeoMetrics(g.rows) }));
+  const tag   = g => `<span class="gtag" style="background:${g.color}22;color:${g.color}">${g.label}</span>`;
+  const pct   = (v,d=1) => v==null ? '—' : v.toFixed(d)+'%';
+  const x     = (v,d=2) => v==null ? '—' : v.toFixed(d)+'x';
+  const rank  = (arr,key) => [...arr].filter(g=>g[key]!=null).sort((a,b)=>b[key]-a[key]);
+  const period = `${latMon} · Cohort breakdown by geo`;
+  const bullets = [];
+
+  // ── 1. Active Paying User Retention ──────────────────────────────────────
+  const byRetM1 = rank(geos,'retM1Lat'), botRetM1=[...byRetM1].reverse()[0];
+  if (byRetM1.length) {
+    const allGood = byRetM1.every(g=>g.retM1Lat>=65);
+    bullets.push({ cls: allGood?'pos':botRetM1?.retM1Lat<55?'neg':'warn', icon: allGood?'▲':'▼',
+      text: `<strong>Paying User Retention — M1:</strong> ${byRetM1.map(g=>`${tag(g)} ${pct(g.retM1Lat)}`).join(' · ')}. `+
+        (botRetM1?.retM1Lat<60 ? `${tag(botRetM1)} weakest M1 cohort — early attrition risk pressuring platform LTV.`
+                                : `Cohort durability healthy across all geos.`) });
+  }
+  const byRetM6 = rank(geos,'retM6Lat');
+  if (byRetM6.length) {
+    const decay = geos.filter(g=>g.retM1Lat!=null&&g.retM6Lat!=null)
+      .map(g=>({...g, drop: g.retM1Lat-g.retM6Lat})).sort((a,b)=>b.drop-a.drop);
+    const wd = decay[0];
+    bullets.push({ cls: wd?.drop>30?'warn':'pos', icon:'◈',
+      text: `<strong>Paying User Retention — M6 durability:</strong> ${byRetM6.map(g=>`${tag(g)} ${pct(g.retM6Lat)}`).join(' · ')}. `+
+        (wd ? `${tag(wd)} steepest M1→M6 drop (${pct(wd.retM1Lat)} → ${pct(wd.retM6Lat)}, −${wd.drop.toFixed(1)}pp) — long-term cohort decay risk.` : '') });
+  }
+
+  // ── 2. LTV / CAC ─────────────────────────────────────────────────────────
+  const byLtvM1 = rank(geos,'ltvM1Lat'), botLtvM1=[...byLtvM1].reverse()[0];
+  if (byLtvM1.length) {
+    const subPayback = byLtvM1.filter(g=>g.ltvM1Lat<1.0);
+    bullets.push({ cls: subPayback.length?'warn':'pos', icon: subPayback.length?'▼':'$',
+      text: `<strong>LTV/CAC — M1 payback:</strong> ${byLtvM1.map(g=>`${tag(g)} ${x(g.ltvM1Lat)}`).join(' · ')}. `+
+        (subPayback.length ? subPayback.map(tag).join(', ')+' yet to reach M1 payback — CAC recovery beyond first month.'
+                           : `All geos exceed M1 payback. ${tag(byLtvM1[0])} leads; ${tag(botLtvM1)} trails.`) });
+  }
+  const byLtvM6 = rank(geos,'ltvM6Lat');
+  if (byLtvM6.length) {
+    const expansion = geos.filter(g=>g.ltvM1Lat!=null&&g.ltvM6Lat!=null)
+      .map(g=>({...g, gain:g.ltvM6Lat-g.ltvM1Lat})).sort((a,b)=>b.gain-a.gain);
+    const best=expansion[0], worst=expansion[expansion.length-1];
+    bullets.push({ cls:'pos', icon:'▲',
+      text: `<strong>LTV/CAC — M6 expansion:</strong> ${byLtvM6.map(g=>`${tag(g)} ${x(g.ltvM6Lat)}`).join(' · ')}. `+
+        (best&&worst&&best!==worst ? `${tag(best)} highest M1→M6 gain (+${best.gain.toFixed(2)}x); ${tag(worst)} lowest (+${worst.gain.toFixed(2)}x) — upsell velocity gap worth monitoring.` : '') });
+  }
+
+  // ── 3. Revenue Retention ─────────────────────────────────────────────────
+  const byRrevM1 = rank(geos,'rrevM1Lat'), botRrevM1=[...byRrevM1].reverse()[0];
+  if (byRrevM1.length) {
+    bullets.push({ cls: byRrevM1[0]?.rrevM1Lat>130?'pos':'warn', icon: byRrevM1[0]?.rrevM1Lat>100?'▲':'▼',
+      text: `<strong>Revenue Retention — M1:</strong> ${byRrevM1.map(g=>`${tag(g)} ${pct(g.rrevM1Lat)}`).join(' · ')}. `+
+        (botRrevM1 ? `${tag(botRrevM1)} lowest at ${pct(botRrevM1.rrevM1Lat)} — `+
+          (botRrevM1.rrevM1Lat<100 ? 'cohort revenue contracting; upgrade/upsell levers need attention.'
+                                   : 'trailing peers but still expanding above baseline.') : '') });
+  }
+  const byRrevM6 = rank(geos,'rrevM6Lat');
+  if (byRrevM6.length) {
+    const decay = geos.filter(g=>g.rrevM1Lat!=null&&g.rrevM6Lat!=null)
+      .map(g=>({...g, drop:g.rrevM1Lat-g.rrevM6Lat})).sort((a,b)=>b.drop-a.drop);
+    const wd=decay[0], best=byRrevM6[0];
+    bullets.push({ cls: best?.rrevM6Lat>80?'pos':'warn', icon:'◈',
+      text: `<strong>Revenue Retention — M6 durability:</strong> ${byRrevM6.map(g=>`${tag(g)} ${pct(g.rrevM6Lat)}`).join(' · ')}. `+
+        (wd ? `${tag(wd)} steepest M1→M6 decay (${pct(wd.rrevM1Lat)} → ${pct(wd.rrevM6Lat)}); ` : '')+
+        (best ? `${tag(best)} most durable revenue retention at M6.` : '') });
+  }
+
+  return analysisBlock(bullets, period);
 }
 
 // ── UGC Analysis block (Overall tab only) ────────────────────────────────────
@@ -851,6 +929,10 @@ function render(rows, tab, geoData=[]) {
     ? buildAnalysis(geoData, mau[latI], latMon, latNonNull(retM1), latNonNull(retM3))
     : { users:'', acquisition:'', playtime:'' };
 
+  // ── Cohort Analysis: Retention · LTV/CAC · Revenue Retention (Overall only) ─
+  const cohortAnalysis = (tab.id==='overall' && geoData.length)
+    ? buildCohortAnalysis(geoData, latMon) : '';
+
   // ── UGC Analysis (Overall tab only) ──────────────────────────────────────
   const ugcAnalysis = tab.id==='overall' ? buildUGCAnalysis(M, ugcLatI, ugcPrevI, months) : '';
 
@@ -896,6 +978,7 @@ function render(rows, tab, geoData=[]) {
     <div class="chart-card"><div class="chart-title">Revenue Retention<small>M1 · M3 · M6 · M12 · M24 · M36</small></div><div class="ch"><canvas id="c-revret"></canvas></div></div>
   </div>
 
+  ${cohortAnalysis}
   ${bbSection}
   ${analysis.acquisition}
 
