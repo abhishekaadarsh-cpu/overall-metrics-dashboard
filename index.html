@@ -861,7 +861,7 @@ function render(rows, tab, geoData=[]) {
     <div class="chart-card"><div class="chart-title">Paying Users (Cumulative)<small>unique payers</small></div><div class="ch"><canvas id="c-pu"></canvas></div></div>
     <div class="chart-card"><div class="chart-title">Active Paying User Retention<small>M0 · M1 · M3 · M6 cohort %</small></div><div class="ch"><canvas id="c-retention"></canvas></div></div>
     <div class="chart-card"><div class="chart-title">LTV / CAC<small>M1 · M3 · M6 · M12 · M24 · M36</small></div><div class="ch"><canvas id="c-ltvcac"></canvas></div></div>
-    <div class="chart-card"><div class="chart-title">Revenue Retention (M0 cohort)<small>M1 · M3 · M6 · M12 · M24 · M36 %</small></div><div class="ch"><canvas id="c-revret"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Revenue Retention<small>M1 · M3 · M6 · M12 · M24 · M36</small></div><div class="ch"><canvas id="c-revret"></canvas></div></div>
   </div>
 
   ${bbSection}
@@ -998,7 +998,7 @@ function render(rows, tab, geoData=[]) {
     {label:'M12',data:rrevM12,borderColor:'#cba6f7',borderDash:[8,3],pointRadius:3,pointBackgroundColor:'#cba6f7',tension:.38,spanGaps:false,borderWidth:1.5},
     {label:'M24',data:rrevM24,borderColor:'#74c7ec',borderDash:[5,5],pointRadius:3,pointBackgroundColor:'#74c7ec',tension:.38,spanGaps:false,borderWidth:1.5},
     {label:'M36',data:rrevM36,borderColor:'#a6e3a1',borderDash:[3,3],pointRadius:3,pointBackgroundColor:'#a6e3a1',tension:.38,spanGaps:false,borderWidth:1.5},
-  ],{yFmt:v=>v!=null?v.toFixed(1)+'%':''});
+  ],{yFmt:v=>v!=null?fmtCur(v):''});
 
   if (tab.id === 'overall') {
     mkChart('c-bb-1mn','line',bbSL,[
