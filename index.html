@@ -718,20 +718,7 @@ function render(rows, tab, geoData=[]) {
   const ptLdau     = g('Playtime/LDAU (Mins)');
   const paidOvPT   = g('Paid/Overall Playtime');
 
-  // ── Cohort retention metric getters ─────────────────────────────────────
-  const retM0 = g('ret_m0');
-  const retM1 = g('ret_m1');
-  const retM3 = g('ret_m3');
-  const retM6 = g('ret_m6');
   const latNonNull = arr => arr.reduce((a,v)=>v!=null?v:a, null);
-
-  // ── LTV/CAC getters ──────────────────────────────────────────────────────
-  const ltvM0=g('ltv_m0'),ltvM1=g('ltv_m1'),ltvM3=g('ltv_m3'),ltvM6=g('ltv_m6');
-  const ltvM12=g('ltv_m12'),ltvM24=g('ltv_m24'),ltvM36=g('ltv_m36');
-
-  // ── Revenue Retention M0 getters ─────────────────────────────────────────
-  const rrevM1=g('rrev_m1'),rrevM3=g('rrev_m3'),rrevM6=g('rrev_m6');
-  const rrevM12=g('rrev_m12'),rrevM24=g('rrev_m24'),rrevM36=g('rrev_m36');
 
   // ── UGC metric getters ───────────────────────────────────────────────────
   const ugcRev     = g('Total Revenue ($)');
@@ -785,6 +772,13 @@ function render(rows, tab, geoData=[]) {
       if (section==='rrev' && RREV_KEYS[label]) { M[RREV_KEYS[label]]=idxs.map(i=>n(row[2+i])); continue; }
     }
   }
+  // ── Cohort getters — must come AFTER row-scans populate M ───────────────
+  const retM0 = g('ret_m0'), retM1 = g('ret_m1'), retM3 = g('ret_m3'), retM6 = g('ret_m6');
+  const ltvM0=g('ltv_m0'),ltvM1=g('ltv_m1'),ltvM3=g('ltv_m3'),ltvM6=g('ltv_m6');
+  const ltvM12=g('ltv_m12'),ltvM24=g('ltv_m24'),ltvM36=g('ltv_m36');
+  const rrevM1=g('rrev_m1'),rrevM3=g('rrev_m3'),rrevM6=g('rrev_m6');
+  const rrevM12=g('rrev_m12'),rrevM24=g('rrev_m24'),rrevM36=g('rrev_m36');
+
   const bbEn1mn=g('bb_en_1mn'), bbEn500=g('bb_en_500k');
   const bbDe1mn=g('bb_de_1mn'), bbDe500=g('bb_de_500k');
   const bbIn1mn=g('bb_in_1mn'), bbIn500=g('bb_in_500k');
