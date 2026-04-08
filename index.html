@@ -1182,7 +1182,7 @@ function render(rows, tab, geoData=[]) {
     mkChart('c-ugc-earn','bar',ugcSL,[
       {label:'Top 10% — US ($)',     data:ugcEarnUS.slice(0,ugcLatI+1), backgroundColor:'rgba(249,226,175,.6)',borderRadius:4,yAxisID:'y'},
       {label:'Top 10% — India (₹)', data:ugcEarnInd.slice(0,ugcLatI+1),backgroundColor:'rgba(137,220,235,.5)',borderRadius:4,yAxisID:'y2'}
-    ],{yFmt:v=>fmtCur(v),y2Fmt:v=>'₹'+fmtBig(v),y2:{grid:{drawOnChartArea:false},ticks:{color:'#89dceb',font:{size:9}}}});
+    ],{yFmt:v=>fmtCur(v),y2:{grid:{drawOnChartArea:false},ticks:{color:'#89dceb',font:{size:9},callback:v=>'₹'+fmtBig(v)}}});
   }
 
   // ── Data table ────────────────────────────────────────────────────────────
