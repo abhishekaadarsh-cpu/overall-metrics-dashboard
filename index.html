@@ -229,6 +229,36 @@ function mkChart(id,type,labels,datasets,opts={}) {
   chartInstances.push(inst);
 }
 
+// ── Piecewise Y scale: stretches the 40–80% band for better M12/M24/M36 readability ──
+{
+  class PiecewiseScale extends Chart.LinearScale {
+    // maps data value → fractional position [0=bottom, 1=top]
+    _frac(v) {
+      const pivot = 80, split = 0.60; // 60% of height for the 40–80 zone
+      const {min, max} = this;
+      const r1 = Math.max(pivot - min, 1e-9);
+      const r2 = Math.max(max - pivot, 1e-9);
+      if (v <= pivot) return ((v - min) / r1) * split;
+      return split + ((v - pivot) / r2) * (1 - split);
+    }
+    getPixelForValue(v) {
+      if (v == null || isNaN(v)) return NaN;
+      return this.bottom - this._frac(v) * (this.bottom - this.top);
+    }
+    getValueForPixel(px) {
+      const t = (this.bottom - px) / (this.bottom - this.top);
+      const pivot = 80, split = 0.60;
+      const {min, max} = this;
+      if (t <= split)
+        return min + (t / split) * (pivot - min);
+      return pivot + ((t - split) / (1 - split)) * (max - pivot);
+    }
+  }
+  PiecewiseScale.id = 'piecewise';
+  PiecewiseScale.defaults = { ...Chart.LinearScale.defaults };
+  Chart.register(PiecewiseScale);
+}
+
 // ── Load & render ─────────────────────────────────────────────────────────────
 function sheetUrl(sheetName) {
   return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&_=${Date.now()}`;
@@ -1000,7 +1030,7 @@ function render(rows, tab, geoData=[]) {
     {label:'M12',data:rrevM12,borderColor:'#cba6f7',borderDash:[8,3],pointRadius:3,pointBackgroundColor:'#cba6f7',tension:.38,spanGaps:false,borderWidth:1.5},
     {label:'M24',data:rrevM24,borderColor:'#74c7ec',borderDash:[5,5],pointRadius:3,pointBackgroundColor:'#74c7ec',tension:.38,spanGaps:false,borderWidth:1.5},
     {label:'M36',data:rrevM36,borderColor:'#a6e3a1',borderDash:[3,3],pointRadius:3,pointBackgroundColor:'#a6e3a1',tension:.38,spanGaps:false,borderWidth:1.5},
-  ],{yFmt:v=>v!=null?v.toFixed(1)+'%':''});
+  ],{yFmt:v=>v!=null?v.toFixed(1)+'%':'', y:{type:'piecewise',min:40}});
 
   if (tab.id === 'overall') {
     mkChart('c-bb-1mn','line',bbSL,[
