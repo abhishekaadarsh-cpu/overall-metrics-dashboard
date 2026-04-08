@@ -277,16 +277,19 @@ function extractGeoMetrics(rows) {
     let label=row[1]; if(!label) continue;
     M[KEY_ALIASES[label]||label] = idxs.map(i=>n(row[2+i]));
   }
-  // Row-scan retention: M0/M1/M3/M6 labels repeat in LTV/CAC section — capture only from retention section
-  { let inRet=false;
+  // Row-scan: Retention / LTV/CAC / Revenue Retention — labels repeat across sections
+  { const RET_KEYS  = {M0:'ret_m0',M1:'ret_m1',M3:'ret_m3',M6:'ret_m6'};
+    const LTV_KEYS  = {M0:'ltv_m0',M1:'ltv_m1',M3:'ltv_m3',M6:'ltv_m6',M12:'ltv_m12',M24:'ltv_m24',M36:'ltv_m36'};
+    const RREV_KEYS = {M1:'rrev_m1',M3:'rrev_m3',M6:'rrev_m6',M12:'rrev_m12',M24:'rrev_m24',M36:'rrev_m36'};
+    let section=null;
     for(const row of rows.slice(2)){
       const label=row[1]; if(!label) continue;
-      if(label==='Active Paying User Retention'){inRet=true;continue;}
-      if(!inRet) continue;
-      if(label==='M0'){M['ret_m0']=idxs.map(i=>n(row[2+i]));continue;}
-      if(label==='M1'){M['ret_m1']=idxs.map(i=>n(row[2+i]));continue;}
-      if(label==='M3'){M['ret_m3']=idxs.map(i=>n(row[2+i]));continue;}
-      if(label==='M6'){M['ret_m6']=idxs.map(i=>n(row[2+i]));inRet=false;continue;}
+      if(label==='Active Paying User Retention'){section='ret';continue;}
+      if(label==='LTV/CAC'){section='ltv';continue;}
+      if(label==='Revenue Retention M0'){section='rrev';continue;}
+      if(section==='ret'  && RET_KEYS[label]) {M[RET_KEYS[label]] =idxs.map(i=>n(row[2+i]));continue;}
+      if(section==='ltv'  && LTV_KEYS[label]) {M[LTV_KEYS[label]] =idxs.map(i=>n(row[2+i]));continue;}
+      if(section==='rrev' && RREV_KEYS[label]){M[RREV_KEYS[label]]=idxs.map(i=>n(row[2+i]));continue;}
     }
   }
   const g=k=>M[k]||[];
@@ -722,6 +725,14 @@ function render(rows, tab, geoData=[]) {
   const retM6 = g('ret_m6');
   const latNonNull = arr => arr.reduce((a,v)=>v!=null?v:a, null);
 
+  // ── LTV/CAC getters ──────────────────────────────────────────────────────
+  const ltvM0=g('ltv_m0'),ltvM1=g('ltv_m1'),ltvM3=g('ltv_m3'),ltvM6=g('ltv_m6');
+  const ltvM12=g('ltv_m12'),ltvM24=g('ltv_m24'),ltvM36=g('ltv_m36');
+
+  // ── Revenue Retention M0 getters ─────────────────────────────────────────
+  const rrevM1=g('rrev_m1'),rrevM3=g('rrev_m3'),rrevM6=g('rrev_m6');
+  const rrevM12=g('rrev_m12'),rrevM24=g('rrev_m24'),rrevM36=g('rrev_m36');
+
   // ── UGC metric getters ───────────────────────────────────────────────────
   const ugcRev     = g('Total Revenue ($)');
   const ugcArr     = g('ARR ($)');
@@ -759,16 +770,19 @@ function render(rows, tab, geoData=[]) {
     }
   }
 
-  // ── Active Paying User Retention — row-scan (M0/M1/M3/M6 labels repeat in LTV/CAC section) ──
-  { let inRet=false;
+  // ── Section row-scan: Retention, LTV/CAC, Revenue Retention (duplicate M-labels) ──
+  { const RET_KEYS  = {M0:'ret_m0',M1:'ret_m1',M3:'ret_m3',M6:'ret_m6'};
+    const LTV_KEYS  = {M0:'ltv_m0',M1:'ltv_m1',M3:'ltv_m3',M6:'ltv_m6',M12:'ltv_m12',M24:'ltv_m24',M36:'ltv_m36'};
+    const RREV_KEYS = {M1:'rrev_m1',M3:'rrev_m3',M6:'rrev_m6',M12:'rrev_m12',M24:'rrev_m24',M36:'rrev_m36'};
+    let section=null;
     for (const row of rows.slice(2)) {
       const label = row[1]; if(!label) continue;
-      if (label==='Active Paying User Retention') { inRet=true; continue; }
-      if (!inRet) continue;
-      if (label==='M0') { M['ret_m0']=idxs.map(i=>n(row[2+i])); continue; }
-      if (label==='M1') { M['ret_m1']=idxs.map(i=>n(row[2+i])); continue; }
-      if (label==='M3') { M['ret_m3']=idxs.map(i=>n(row[2+i])); continue; }
-      if (label==='M6') { M['ret_m6']=idxs.map(i=>n(row[2+i])); inRet=false; continue; }
+      if (label==='Active Paying User Retention') { section='ret';  continue; }
+      if (label==='LTV/CAC')                      { section='ltv';  continue; }
+      if (label==='Revenue Retention M0')          { section='rrev'; continue; }
+      if (section==='ret'  && RET_KEYS[label])  { M[RET_KEYS[label]] =idxs.map(i=>n(row[2+i])); continue; }
+      if (section==='ltv'  && LTV_KEYS[label])  { M[LTV_KEYS[label]] =idxs.map(i=>n(row[2+i])); continue; }
+      if (section==='rrev' && RREV_KEYS[label]) { M[RREV_KEYS[label]]=idxs.map(i=>n(row[2+i])); continue; }
     }
   }
   const bbEn1mn=g('bb_en_1mn'), bbEn500=g('bb_en_500k');
@@ -852,6 +866,8 @@ function render(rows, tab, geoData=[]) {
     <div class="chart-card"><div class="chart-title">Transactions &amp; NPU<small>monthly</small></div><div class="ch"><canvas id="c-txn"></canvas></div></div>
     <div class="chart-card"><div class="chart-title">Paying Users (Cumulative)<small>unique payers</small></div><div class="ch"><canvas id="c-pu"></canvas></div></div>
     <div class="chart-card"><div class="chart-title">Active Paying User Retention<small>M0 · M1 · M3 · M6 cohort %</small></div><div class="ch"><canvas id="c-retention"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">LTV / CAC<small>M0 · M1 · M3 · M6 · M12 · M24 · M36</small></div><div class="ch"><canvas id="c-ltvcac"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Revenue Retention (M0 cohort)<small>M1 · M3 · M6 · M12 · M24 · M36 %</small></div><div class="ch"><canvas id="c-revret"></canvas></div></div>
   </div>
 
   ${bbSection}
@@ -971,6 +987,25 @@ function render(rows, tab, geoData=[]) {
     {label:'M3',data:retM3,borderColor:'#ffa94d',borderDash:[4,4],pointRadius:retM3.map(v=>v!=null?4:0),pointBackgroundColor:'#ffa94d',pointBorderColor:'#12122a',pointBorderWidth:1.5,tension:.38,spanGaps:false,borderWidth:2},
     {label:'M6',data:retM6,borderColor:'#ff6b9d',borderDash:[2,4],pointRadius:retM6.map(v=>v!=null?4:0),pointBackgroundColor:'#ff6b9d',pointBorderColor:'#12122a',pointBorderWidth:1.5,tension:.38,spanGaps:false,borderWidth:2},
   ],{yFmt:v=>v!=null?v.toFixed(1)+'%':'', y:{min:20,max:100}});
+
+  mkChart('c-ltvcac','line',SL,[
+    {label:'M0', data:ltvM0, borderColor:'#00d4aa',pointRadius:4,pointBackgroundColor:'#00d4aa',tension:.38,spanGaps:false,borderWidth:2.5},
+    {label:'M1', data:ltvM1, borderColor:'#4d9fff',borderDash:[6,3],pointRadius:3,pointBackgroundColor:'#4d9fff',tension:.38,spanGaps:false,borderWidth:2},
+    {label:'M3', data:ltvM3, borderColor:'#ffa94d',borderDash:[4,4],pointRadius:3,pointBackgroundColor:'#ffa94d',tension:.38,spanGaps:false,borderWidth:2},
+    {label:'M6', data:ltvM6, borderColor:'#ff6b9d',borderDash:[2,4],pointRadius:3,pointBackgroundColor:'#ff6b9d',tension:.38,spanGaps:false,borderWidth:2},
+    {label:'M12',data:ltvM12,borderColor:'#cba6f7',borderDash:[8,3],pointRadius:3,pointBackgroundColor:'#cba6f7',tension:.38,spanGaps:false,borderWidth:1.5},
+    {label:'M24',data:ltvM24,borderColor:'#74c7ec',borderDash:[5,5],pointRadius:3,pointBackgroundColor:'#74c7ec',tension:.38,spanGaps:false,borderWidth:1.5},
+    {label:'M36',data:ltvM36,borderColor:'#a6e3a1',borderDash:[3,3],pointRadius:3,pointBackgroundColor:'#a6e3a1',tension:.38,spanGaps:false,borderWidth:1.5},
+  ],{yFmt:v=>v!=null?v.toFixed(2)+'x':''});
+
+  mkChart('c-revret','line',SL,[
+    {label:'M1', data:rrevM1, borderColor:'#4d9fff',borderDash:[6,3],pointRadius:4,pointBackgroundColor:'#4d9fff',tension:.38,spanGaps:false,borderWidth:2.5},
+    {label:'M3', data:rrevM3, borderColor:'#ffa94d',borderDash:[4,4],pointRadius:3,pointBackgroundColor:'#ffa94d',tension:.38,spanGaps:false,borderWidth:2},
+    {label:'M6', data:rrevM6, borderColor:'#ff6b9d',borderDash:[2,4],pointRadius:3,pointBackgroundColor:'#ff6b9d',tension:.38,spanGaps:false,borderWidth:2},
+    {label:'M12',data:rrevM12,borderColor:'#cba6f7',borderDash:[8,3],pointRadius:3,pointBackgroundColor:'#cba6f7',tension:.38,spanGaps:false,borderWidth:1.5},
+    {label:'M24',data:rrevM24,borderColor:'#74c7ec',borderDash:[5,5],pointRadius:3,pointBackgroundColor:'#74c7ec',tension:.38,spanGaps:false,borderWidth:1.5},
+    {label:'M36',data:rrevM36,borderColor:'#a6e3a1',borderDash:[3,3],pointRadius:3,pointBackgroundColor:'#a6e3a1',tension:.38,spanGaps:false,borderWidth:1.5},
+  ],{yFmt:v=>v!=null?v.toFixed(1)+'%':''});
 
   if (tab.id === 'overall') {
     mkChart('c-bb-1mn','line',bbSL,[
