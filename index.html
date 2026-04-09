@@ -1020,6 +1020,7 @@ function render(rows, tab, geoData=[]) {
     ${kpi('UGC % NA Revenue',        fmtPct(ugcPctNA[ugcLatI]),  pp(ugcPctNA[ugcLatI],ugcPctNA[ugcPrevI]),  'pp', '#89dceb', months[ugcLatI]||latMon)}
     ${kpi('UGC % India Revenue',     fmtPct(ugcPctInd[ugcLatI]), pp(ugcPctInd[ugcLatI],ugcPctInd[ugcPrevI]),'pp', '#fab387', months[ugcLatI]||latMon)}
     ${kpi('Listeners (≥30s)',        fmtBig(ugcListAll[ugcLatI]),delta(ugcListAll,ugcLatI),                 '%',  '#74c7ec', months[ugcLatI]||latMon)}
+    ${kpi('UGC Playtime %',          fmtPct(ugcPtPct[ugcLatI]),  pp(ugcPtPct[ugcLatI],ugcPtPct[ugcPrevI]), 'pp', '#94e2d5', months[ugcLatI]||latMon)}
   </div>
   <div class="charts-2" style="margin-top:16px">
     <div class="chart-card"><div class="chart-title">Total Revenue &amp; ARR<small>USD · monthly</small></div><div class="ch"><canvas id="c-ugc-rev"></canvas></div></div>
