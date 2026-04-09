@@ -855,6 +855,7 @@ function render(rows, tab, geoData=[]) {
   const ugcShow500 = g('Shows with Lifetime Revenue> USD 500K');
   const ugcEarnUS  = g('Avg monthly earning of top 10% of eligible writers ($) - US');
   const ugcEarnInd = g('Avg monthly earning of top 10% of eligible writers (INR) - India');
+  const ugcPtPct   = g('UGC Playtime as % of Overall Playtime');
   // UGC data ends at Feb 2026 — find last valid data index
   const ugcLatI  = ugcRev.reduce((a,v,i)=>v!=null?i:a, 0);
   const ugcPrevI = ugcLatI>0?ugcLatI-1:0;
@@ -1037,6 +1038,9 @@ function render(rows, tab, geoData=[]) {
     <div class="chart-card"><div class="chart-title">Listeners (≥30s)<small>Overall vs US</small></div><div class="ch"><canvas id="c-ugc-list"></canvas></div></div>
     <div class="chart-card"><div class="chart-title">IPs Published<small>US vs India cumulative</small></div><div class="ch"><canvas id="c-ugc-ips"></canvas></div></div>
   </div>
+  <div class="charts-2" style="margin-top:18px">
+    <div class="chart-card"><div class="chart-title">UGC Playtime as % of Overall Playtime<small>monthly %</small></div><div class="ch"><canvas id="c-ugc-ptpct"></canvas></div></div>
+  </div>
 
   <div class="kpi-grid" style="margin-top:18px">
     ${kpi('US IPs Published',         fmtBig(ugcUSIPs[ugcLatI]),  delta(ugcUSIPs,ugcLatI),                '%',  '#cba6f7', months[ugcLatI]||latMon)}
@@ -1173,6 +1177,10 @@ function render(rows, tab, geoData=[]) {
       {label:'US IPs Published',    data:ugcUSIPs.slice(0,ugcLatI+1), borderColor:'#cba6f7',tension:.3,pointRadius:3,yAxisID:'y'},
       {label:'India IPs Published', data:ugcIndIPs.slice(0,ugcLatI+1),borderColor:'#fab387',backgroundColor:'rgba(250,179,135,.08)',fill:true,tension:.3,pointRadius:3,yAxisID:'y2'}
     ],{yFmt:v=>fmtBig(v),y2Fmt:v=>fmtBig(v),y2:{grid:{drawOnChartArea:false},ticks:{color:'#fab387',font:{size:9}}}});
+
+    mkChart('c-ugc-ptpct','line',ugcSL,[
+      {label:'UGC Playtime %', data:ugcPtPct.slice(0,ugcLatI+1), borderColor:'#94e2d5', backgroundColor:'rgba(148,226,213,.10)', fill:true, tension:.38, pointRadius:4, pointBackgroundColor:'#94e2d5', borderWidth:2.5}
+    ],{yFmt:v=>v!=null?v.toFixed(0)+'%':'', y:{min:0}});
 
     mkChart('c-ugc-content','line',ugcSL,[
       {label:'Shows >$100K',data:ugcShow100.slice(0,ugcLatI+1),borderColor:'#a6e3a1',tension:.3,pointRadius:4,borderWidth:2},
