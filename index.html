@@ -1121,6 +1121,8 @@ function render(rows, tab, geoData=[]) {
 
   const rrevAllVals=[...rrevM1,...rrevM3,...rrevM6,...rrevM12,...rrevM24,...rrevM36].filter(v=>v!=null&&v>0);
   const rrevMin=rrevAllVals.length?Math.max(0,Math.floor(Math.min(...rrevAllVals)/10)*10):0;
+  const rrevMax=rrevAllVals.length?Math.max(...rrevAllVals):100;
+  const rrevScaleType=rrevMax>100?'piecewise':'linear';
   mkChart('c-revret','line',SL,[
     {label:'M1', data:rrevM1, borderColor:'#4d9fff',borderDash:[6,3],pointRadius:4,pointBackgroundColor:'#4d9fff',tension:.38,spanGaps:false,borderWidth:2.5},
     {label:'M3', data:rrevM3, borderColor:'#ffa94d',borderDash:[4,4],pointRadius:3,pointBackgroundColor:'#ffa94d',tension:.38,spanGaps:false,borderWidth:2},
@@ -1128,7 +1130,7 @@ function render(rows, tab, geoData=[]) {
     {label:'M12',data:rrevM12,borderColor:'#cba6f7',borderDash:[8,3],pointRadius:3,pointBackgroundColor:'#cba6f7',tension:.38,spanGaps:false,borderWidth:1.5},
     {label:'M24',data:rrevM24,borderColor:'#74c7ec',borderDash:[5,5],pointRadius:3,pointBackgroundColor:'#74c7ec',tension:.38,spanGaps:false,borderWidth:1.5},
     {label:'M36',data:rrevM36,borderColor:'#a6e3a1',borderDash:[3,3],pointRadius:3,pointBackgroundColor:'#a6e3a1',tension:.38,spanGaps:false,borderWidth:1.5},
-  ],{yFmt:v=>v!=null?v.toFixed(1)+'%':'', y:{type:'piecewise',min:rrevMin}});
+  ],{yFmt:v=>v!=null?v.toFixed(1)+'%':'', y:{type:rrevScaleType,min:rrevMin}});
 
   if (tab.id === 'overall') {
     mkChart('c-bb-1mn','line',bbSL,[
